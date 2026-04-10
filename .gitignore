@@ -1,0 +1,39 @@
+# 환경 변수 및 시크릿
+.env
+credentials/
+*.json
+!.env.example
+
+# SQLite DB
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 테스트 및 커버리지
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 토큰 캐시 (Google OAuth)
+token.json
+token_*.json

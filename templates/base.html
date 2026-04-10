@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}BookIPS 정산 시스템{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="brand">📚 BookIPS</a>
+        <div class="nav-links">
+            {% if authenticated %}
+                <a href="/settlement">정산 실행</a>
+                <a href="/mapping">ISBN 매핑</a>
+                <a href="/settings">설정</a>
+                <form action="/auth/logout" method="post" style="display:inline">
+                    <button type="submit" class="btn-logout">로그아웃</button>
+                </form>
+            {% else %}
+                <a href="/auth/login" class="btn-login">Google 로그인</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="container">
+        {% if request.query_params.get('error') %}
+        <div class="alert alert-error">
+            오류: {{ request.query_params.get('error') }}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

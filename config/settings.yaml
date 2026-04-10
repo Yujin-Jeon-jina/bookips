@@ -1,0 +1,54 @@
+sheets:
+  contract:
+    spreadsheet_id: "1xrC3seWM8FH-MnpvE06shsbKKZOcAoIprIpboOiKQos"
+    worksheet: "MATHPRESSO CONTRACTED IP LIST_2026"
+    header_rows: 2          # 1행: 영문 헤더, 2행: 한글 설명 → 데이터는 3행+
+    columns:
+      isbn: 0               # A열 (0-indexed)
+      publisher: 1          # B열
+      title: 2              # C열
+      unit_price: 3         # D열 (교재 정가)
+      start_date: 4         # E열 (계약 시작일)
+      end_date: 5           # F열 (계약 종료일)
+
+  usage:
+    spreadsheet_id: "1xtT0DcS8A3lGCSZPcpvggo4pzZhmF2w1QWeIEo_BNVU"
+    worksheet: "Pivot"
+    data_start_row: 8       # 0-indexed: 행8(9번째 행)부터 데이터
+    columns:
+      publisher: 0          # A열
+      isbn: 1               # B열 (실제 사용 ISBN)
+      book_name: 2          # C열 (contractedBook.bookName)
+      usage_count: 3        # D열 (COUNTUNIQUE - 사용자수)
+      unit_price: 4         # E열 (MAX of 단가)
+      amount: 5             # F열 ((사용자수) × (단가))
+      authorized: 6         # G열 (미하가여부)
+
+  settlement:
+    spreadsheet_id: "1u18mFtPXz84Yx0vgyu4w0RvxVf2lL0CF_Cz0PCYHdcw"
+    summary_worksheet: "씰북 Summary"
+    evidence_row_label: "증빙(정산내역)"   # Link가 있는 행 레이블
+    individual_file_name_pattern: "{yy}.{mm:02d}월_{publisher}_갱신계약(MG) 적용분"
+    settlement_detail_columns:    # 개별 정산 파일 첫 번째 탭 컬럼
+      period: 0             # A열 (정산 기간: YYYY-MM)
+      publisher: 1          # B열 (출판사)
+      isbn: 2               # C열 (계약 ISBN)
+      title: 3              # D열 (교재명)
+      usage_count: 4        # E열 (등록 교재 수)
+      unit_price: 5         # F열 (교재 정가)
+      amount: 6             # G열 (정산 금액)
+
+nl_api:
+  base_url: "https://www.nl.go.kr/seoji/SearchApi.do"
+  result_style: "json"
+  page_size: 10
+  rate_limit_delay: 0.5     # 초 단위 API 호출 간격
+
+matching:
+  title_threshold: 0.75       # 도서명 유사도 최소값
+  author_threshold: 0.65      # 저자 유사도 최소값
+  combined_threshold: 0.70    # 결합 점수 최소값 (0.7×도서명 + 0.3×저자)
+  same_publisher_bonus: 0.05  # 같은 출판사일 때 보너스 점수
+
+database:
+  path: "data/bookips.db"
