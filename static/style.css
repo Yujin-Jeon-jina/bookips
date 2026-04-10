@@ -164,6 +164,66 @@ input:focus, select:focus { outline: 2px solid var(--primary); border-color: tra
 }
 .btn-submit:hover { background: var(--primary-dark); }
 
+/* Form rows */
+.form-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.form-row .form-group { flex: 1; min-width: 150px; }
+
+.form-actions { margin-top: 16px; display: flex; gap: 12px; align-items: center; }
+
+/* Result summary */
+.result-summary {
+    display: flex;
+    gap: 24px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+}
+.stat {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 20px;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    border: 1px solid var(--gray-200);
+}
+.stat-label { font-size: .8rem; color: var(--gray-700); }
+.stat-value { font-size: 1.4rem; font-weight: 700; }
+
+.text-danger { color: var(--danger); }
+
+/* Result area */
+.result-area { margin-top: 24px; }
+.result-card { margin-top: 16px; }
+.result-card h3 { margin: 24px 0 12px; font-size: 1rem; }
+
+/* Small buttons */
+.btn-small {
+    padding: 4px 10px;
+    font-size: .8rem;
+    border: 1px solid var(--gray-200);
+    background: #fff;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+.btn-small:hover { background: var(--gray-100); }
+.btn-danger { border-color: #fecaca; color: var(--danger); }
+.btn-danger:hover { background: #fef2f2; }
+
+/* Candidates */
+.candidate { margin: 2px 0; }
+.candidate small { font-size: .8rem; }
+
+/* Hint text */
+.hint { font-size: .9rem; color: var(--gray-700); margin-bottom: 16px; }
+
 /* Loading indicator */
-.htmx-indicator { display: none; }
+.htmx-indicator { display: none; color: var(--primary); font-size: .9rem; }
 .htmx-request .htmx-indicator { display: inline; }
+.htmx-request.htmx-indicator { display: inline; }
+
+/* tfoot */
+tfoot td { border-top: 2px solid var(--gray-700); }

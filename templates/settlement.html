@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}정산 실행 - BookIPS{% endblock %}
+
+{% block content %}
+<div class="settlement-page">
+    <h1>정산 실행</h1>
+
+    {% if not authenticated %}
+    <div class="auth-prompt">
+        <p>Google 로그인이 필요합니다.</p>
+        <a href="/auth/login" class="btn btn-primary">Google 로그인</a>
+    </div>
+    {% else %}
+
+    <div class="settlement-form card">
+        <h2>1. 정산 설정</h2>
+        <p class="hint">사용량 시트에서 날짜 설정 후 BigQuery 새로고침을 먼저 완료해 주세요.</p>
+
+        <form id="settlement-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="year">연도</label>
+                    <select name="year" id="year">
+                        <option value="2026" selected>2026</option>
+                        <option value="2025">2025</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="month">월</label>
+                    <select name="month" id="month">
+                        {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if m == 3 %}selected{% endif %}>{{ m }}월</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="flex:2">
+                    <label for="publisher">출판사</label>
+                    <select name="publisher" id="publisher"
+                            hx-get="/api/publishers"
+                            hx-trigger="load"
+                            hx-swap="innerHTML">
+                        <option value="">로딩 중...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary"
+                        hx-post="/api/settlement/preview"
+                        hx-include="#settlement-form"
+                        hx-target="#result-area"
+                        hx-indicator="#loading">
+                    미리보기 (매칭만)
+                </button>
+                <span id="loading" class="htmx-indicator">처리 중...</span>
+            </div>
+        </form>
+    </div>
+
+    <div id="result-area" class="result-area">
+        <!-- HTMX로 결과가 여기에 삽입됨 -->
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

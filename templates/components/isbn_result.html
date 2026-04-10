@@ -1,0 +1,19 @@
+{% if metadata %}
+<div class="card" style="margin-top:16px">
+    <h3>조회 결과: {{ isbn }}</h3>
+    <table>
+        <tr><th style="width:120px">ISBN</th><td>{{ metadata.ea_isbn }}</td></tr>
+        <tr><th>도서명</th><td>{{ metadata.title }}</td></tr>
+        <tr><th>저자</th><td>{{ metadata.author }}</td></tr>
+        <tr><th>출판사</th><td>{{ metadata.publisher }}</td></tr>
+        <tr><th>발행일</th><td>{{ metadata.publish_date }}</td></tr>
+        <tr><th>판차</th><td>{{ metadata.edition or "-" }}</td></tr>
+        <tr><th>세트 ISBN</th><td>{{ metadata.set_isbn or "-" }}</td></tr>
+        <tr><th>주제분류</th><td>{{ metadata.subject or "-" }}</td></tr>
+    </table>
+</div>
+{% else %}
+<div class="card" style="margin-top:16px">
+    <p>ISBN <code>{{ isbn }}</code> 조회 결과가 없습니다.</p>
+</div>
+{% endif %}

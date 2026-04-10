@@ -1,0 +1,43 @@
+<div id="mapping-table" class="card" style="margin-top:24px">
+    <h2>저장된 매핑 목록 ({{ mappings|length }}건)</h2>
+
+    {% if mappings %}
+    <table>
+        <thead>
+            <tr>
+                <th>사용 ISBN</th>
+                <th>계약 ISBN</th>
+                <th>매칭 방법</th>
+                <th>신뢰도</th>
+                <th>등록일</th>
+                <th>삭제</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in mappings %}
+            <tr>
+                <td><code>{{ m.usage_isbn }}</code></td>
+                <td><code>{{ m.contract_isbn }}</code></td>
+                <td>
+                    <span class="badge badge-{{ m.match_method }}">{{ m.match_method }}</span>
+                </td>
+                <td>{{ "%.0f"|format(m.confidence * 100) }}%</td>
+                <td><small>{{ m.created_at[:10] }}</small></td>
+                <td>
+                    <form hx-post="/api/mapping/delete"
+                          hx-target="#mapping-table"
+                          hx-swap="outerHTML"
+                          style="display:inline">
+                        <input type="hidden" name="usage_isbn" value="{{ m.usage_isbn }}">
+                        <button type="submit" class="btn-small btn-danger"
+                                onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--gray-700)">저장된 매핑이 없습니다.</p>
+    {% endif %}
+</div>

@@ -1,0 +1,131 @@
+<div class="result-card card">
+    <h2>정산 결과: {{ result.publisher }} ({{ result.period }})</h2>
+
+    <div class="result-summary">
+        <div class="stat">
+            <span class="stat-label">매칭 성공</span>
+            <span class="stat-value">{{ result.rows|length }}건</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">미매칭</span>
+            <span class="stat-value {% if result.unmatched %}text-danger{% endif %}">{{ result.unmatched|length }}건</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">매칭율</span>
+            <span class="stat-value">{{ "%.1f"|format(result.match_rate * 100) }}%</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">총 정산액</span>
+            <span class="stat-value">₩{{ "{:,}".format(result.total_amount) }}</span>
+        </div>
+    </div>
+
+    {% if result.rows %}
+    <h3>정산 내역</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>ISBN</th>
+                <th>교재명</th>
+                <th>사용수</th>
+                <th>단가</th>
+                <th>정산액</th>
+                <th>매칭</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in result.rows %}
+            <tr>
+                <td><code>{{ row.contract_isbn }}</code></td>
+                <td>{{ row.title }}</td>
+                <td style="text-align:right">{{ row.usage_count }}</td>
+                <td style="text-align:right">₩{{ "{:,}".format(row.unit_price) }}</td>
+                <td style="text-align:right"><strong>₩{{ "{:,}".format(row.amount) }}</strong></td>
+                <td>
+                    <span class="badge badge-{{ row.match_method }}">{{ row.match_method }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4" style="text-align:right"><strong>합계</strong></td>
+                <td style="text-align:right"><strong>₩{{ "{:,}".format(result.total_amount) }}</strong></td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+    {% endif %}
+
+    {% if result.unmatched %}
+    <h3>미매칭 항목 (수동 검토 필요)</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>사용 ISBN</th>
+                <th>시트 교재명</th>
+                <th>API 도서명</th>
+                <th>사용수</th>
+                <th>후보</th>
+                <th>액션</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for um in result.unmatched %}
+            <tr>
+                <td><code>{{ um.usage_isbn }}</code></td>
+                <td>{{ um.book_name }}</td>
+                <td>{{ um.metadata.title if um.metadata else "조회 실패" }}</td>
+                <td style="text-align:right">{{ um.usage_count }}</td>
+                <td>
+                    {% for book, score in um.candidates %}
+                    <div class="candidate">
+                        <span class="badge badge-fuzzy">{{ "%.0f"|format(score * 100) }}%</span>
+                        <small>{{ book.title }}</small>
+                    </div>
+                    {% endfor %}
+                </td>
+                <td>
+                    {% if um.candidates %}
+                    {% set best_book, best_score = um.candidates[0] %}
+                    <form hx-post="/api/mapping/add"
+                          hx-target="#mapping-status"
+                          hx-swap="innerHTML"
+                          style="display:inline">
+                        <input type="hidden" name="usage_isbn" value="{{ um.usage_isbn }}">
+                        <input type="hidden" name="contract_isbn" value="{{ best_book.isbn }}">
+                        <button type="submit" class="btn-small">1순위 매핑</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="mapping-status"></div>
+    {% endif %}
+
+    {% if not executed|default(false) %}
+    <div class="form-actions" style="margin-top:24px">
+        <form hx-post="/api/settlement/execute"
+              hx-target="#result-area"
+              hx-indicator="#exec-loading">
+            <input type="hidden" name="publisher" value="{{ result.publisher }}">
+            <input type="hidden" name="year" value="{{ result.period.split('-')[0] }}">
+            <input type="hidden" name="month" value="{{ result.period.split('-')[1]|int }}">
+            <button type="submit" class="btn-submit"
+                    onclick="return confirm('정산 파일을 생성하고 시트에 저장하시겠습니까?')">
+                시트에 저장
+            </button>
+            <span id="exec-loading" class="htmx-indicator">저장 중...</span>
+        </form>
+    </div>
+    {% else %}
+    <div class="alert" style="background:#dcfce7;border:1px solid #86efac;margin-top:16px">
+        정산 완료!
+        {% if result.new_file_url %}
+        <a href="{{ result.new_file_url }}" target="_blank">정산 파일 열기</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

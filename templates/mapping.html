@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}ISBN 매핑 관리 - BookIPS{% endblock %}
+
+{% block content %}
+<div class="mapping-page">
+    <h1>ISBN 매핑 관리</h1>
+
+    <div class="card">
+        <h2>수동 매핑 추가</h2>
+        <form class="form-row"
+              hx-post="/api/mapping/add"
+              hx-target="#mapping-table"
+              hx-swap="outerHTML">
+            <div class="form-group">
+                <label for="usage_isbn">사용 ISBN</label>
+                <input type="text" name="usage_isbn" id="usage_isbn"
+                       placeholder="9781234567890" required>
+            </div>
+            <div class="form-group">
+                <label for="contract_isbn">계약 ISBN</label>
+                <input type="text" name="contract_isbn" id="contract_isbn"
+                       placeholder="9789876543210" required>
+            </div>
+            <div class="form-group" style="align-self:flex-end">
+                <button type="submit" class="btn-submit">추가</button>
+            </div>
+        </form>
+    </div>
+
+    {% include "components/mapping_table.html" %}
+</div>
+{% endblock %}
