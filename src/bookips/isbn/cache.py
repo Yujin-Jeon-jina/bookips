@@ -1,7 +1,10 @@
-"""ISBN 매핑 캐시 (SQLite 기반)
+"""ISBN 매핑 캐시 (SQLite 로컬 + Google Sheets 영구 저장)
 
-한번 해결된 ISBN 매핑을 저장하여 다음 달에 재처리 불필요.
-수동 매핑도 이 캐시에 저장됨.
+SQLite: 앱 실행 중 빠른 조회용 로컬 캐시
+Google Sheets: 재배포/재시작 시에도 유지되는 영구 저장소
+
+앱 시작 시 Google Sheets → SQLite로 동기화.
+매핑 추가/삭제 시 SQLite + Google Sheets 동시 업데이트.
 """
 from __future__ import annotations
 
@@ -14,6 +17,9 @@ from typing import Optional
 from bookips.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+MAPPING_TAB_NAME = "isbn_mappings"
+MAPPING_HEADERS = ["usage_isbn", "contract_isbn", "match_method", "confidence", "created_at", "updated_at"]
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS isbn_mappings (
@@ -81,7 +87,7 @@ class ISBNCache:
         match_method: str,
         confidence: float,
     ) -> None:
-        """ISBN 매핑 저장 (upsert)"""
+        """ISBN 매핑 저장 (SQLite + Google Sheets)"""
         now = datetime.now().isoformat()
         with self._connect() as conn:
             conn.execute(
@@ -98,15 +104,19 @@ class ISBNCache:
             )
             conn.commit()
         logger.debug("매핑 저장: %s → %s (%s, %.2f)", usage_isbn, contract_isbn, match_method, confidence)
+        self._sync_to_sheet()
 
     def delete_mapping(self, usage_isbn: str) -> bool:
-        """매핑 삭제. True if deleted."""
+        """매핑 삭제 (SQLite + Google Sheets)"""
         with self._connect() as conn:
             cursor = conn.execute(
                 "DELETE FROM isbn_mappings WHERE usage_isbn = ?", (usage_isbn,)
             )
             conn.commit()
-        return cursor.rowcount > 0
+        deleted = cursor.rowcount > 0
+        if deleted:
+            self._sync_to_sheet()
+        return deleted
 
     def list_mappings(self) -> list[dict]:
         """전체 매핑 목록 반환"""
@@ -135,7 +145,7 @@ class ISBNCache:
         set_isbn: str = "",
         edition: str = "",
     ) -> None:
-        """서지정보 캐시 저장 (upsert)"""
+        """서지정보 캐시 저장 (upsert) - SQLite만 (메타데이터는 영구 저장 불필요)"""
         now = datetime.now().isoformat()
         with self._connect() as conn:
             conn.execute(
@@ -153,3 +163,96 @@ class ISBNCache:
                 (isbn, title, author, publisher, set_isbn, edition, now),
             )
             conn.commit()
+
+    # ─── Google Sheets 영구 저장 ──────────────────────────────────
+
+    def sync_from_sheet(self) -> int:
+        """Google Sheets → SQLite로 매핑 로드 (앱 시작 시)
+
+        Returns:
+            로드된 매핑 수
+        """
+        try:
+            from bookips.sheets.client import get_google_client
+            client = get_google_client()
+            if not client.is_authenticated:
+                return 0
+
+            settings = get_settings()
+            ss = client.open_spreadsheet(settings.settlement.spreadsheet_id)
+
+            # isbn_mappings 탭 찾기
+            try:
+                ws = ss.worksheet(MAPPING_TAB_NAME)
+            except Exception:
+                logger.info("'%s' 탭 없음 — 초기 상태", MAPPING_TAB_NAME)
+                return 0
+
+            rows = ws.get_all_values()
+            if len(rows) <= 1:  # 헤더만 있거나 비어있음
+                return 0
+
+            count = 0
+            for row in rows[1:]:  # 헤더 건너뛰기
+                if len(row) >= 6 and row[0].strip():
+                    with self._connect() as conn:
+                        conn.execute(
+                            """
+                            INSERT INTO isbn_mappings (usage_isbn, contract_isbn, match_method, confidence, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(usage_isbn) DO UPDATE SET
+                                contract_isbn = excluded.contract_isbn,
+                                match_method  = excluded.match_method,
+                                confidence    = excluded.confidence,
+                                updated_at    = excluded.updated_at
+                            """,
+                            (row[0], row[1], row[2], float(row[3] or 0), row[4], row[5]),
+                        )
+                        conn.commit()
+                    count += 1
+
+            logger.info("Google Sheets에서 매핑 %d건 로드 완료", count)
+            return count
+        except Exception as e:
+            logger.warning("Sheets 매핑 동기화 실패: %s", e)
+            return 0
+
+    def _sync_to_sheet(self) -> None:
+        """SQLite → Google Sheets로 전체 매핑 쓰기"""
+        try:
+            from bookips.sheets.client import get_google_client
+            client = get_google_client()
+            if not client.is_authenticated:
+                return
+
+            settings = get_settings()
+            ss = client.open_spreadsheet(settings.settlement.spreadsheet_id)
+
+            # isbn_mappings 탭 찾기 또는 생성
+            try:
+                ws = ss.worksheet(MAPPING_TAB_NAME)
+            except Exception:
+                ws = ss.add_worksheet(title=MAPPING_TAB_NAME, rows=1000, cols=6)
+                logger.info("'%s' 탭 생성", MAPPING_TAB_NAME)
+
+            # 전체 매핑 읽기
+            mappings = self.list_mappings()
+
+            # 시트 초기화 + 헤더 + 데이터 쓰기
+            ws.clear()
+            values = [MAPPING_HEADERS]
+            for m in mappings:
+                values.append([
+                    m["usage_isbn"],
+                    m["contract_isbn"],
+                    m["match_method"],
+                    str(m["confidence"]),
+                    m["created_at"],
+                    m["updated_at"],
+                ])
+            if values:
+                ws.update(f"A1:F{len(values)}", values)
+
+            logger.debug("Google Sheets에 매핑 %d건 동기화 완료", len(mappings))
+        except Exception as e:
+            logger.warning("Sheets 매핑 저장 실패: %s", e)

@@ -32,8 +32,23 @@ async def settlement_page(request: Request):
 @router.get("/mapping", response_class=HTMLResponse)
 async def mapping_page(request: Request):
     from bookips.isbn.cache import ISBNCache
+    from bookips.isbn.normalizer import normalize_isbn
     cache = ISBNCache()
     mappings = cache.list_mappings()
+
+    # 계약 ISBN 목록 로드하여 검증용 세트 생성
+    contract_isbns = set()
+    try:
+        from bookips.sheets.contract import read_contract_books
+        books = read_contract_books(active_only=True)
+        contract_isbns = {b.isbn for b in books}
+    except Exception:
+        pass
+
+    # 각 매핑에 계약 존재 여부 표시
+    for m in mappings:
+        m["contract_exists"] = normalize_isbn(m["contract_isbn"]) in contract_isbns
+
     return _render(request, "mapping.html", mappings=mappings)
 
 

@@ -10,6 +10,7 @@
                 <th>매칭 방법</th>
                 <th>신뢰도</th>
                 <th>등록일</th>
+                <th>계약 검증</th>
                 <th>삭제</th>
             </tr>
         </thead>
@@ -22,7 +23,18 @@
                     <span class="badge badge-{{ m.match_method }}">{{ m.match_method }}</span>
                 </td>
                 <td>{{ "%.0f"|format(m.confidence * 100) }}%</td>
-                <td><small>{{ m.created_at[:10] }}</small></td>
+                <td><small>{{ m.created_at[:16].replace('T', ' ') }}</small></td>
+                <td>
+                    {% if m.contract_exists is defined %}
+                        {% if m.contract_exists %}
+                            <span class="badge badge-direct">유효</span>
+                        {% else %}
+                            <span class="badge badge-unmatched">미확인</span>
+                        {% endif %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 <td>
                     <form hx-post="/api/mapping/delete"
                           hx-target="#mapping-table"
