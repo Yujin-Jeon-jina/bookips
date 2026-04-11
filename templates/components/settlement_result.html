@@ -15,6 +15,10 @@
             <span class="stat-value">{{ "%.1f"|format(result.match_rate * 100) }}%</span>
         </div>
         <div class="stat">
+            <span class="stat-label">총 사용권수</span>
+            <span class="stat-value">{{ "{:,}".format(result.total_usage_count) }}건</span>
+        </div>
+        <div class="stat">
             <span class="stat-label">총 정산액</span>
             <span class="stat-value">₩{{ "{:,}".format(result.total_amount) }}</span>
         </div>

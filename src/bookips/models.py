@@ -133,6 +133,10 @@ class SettlementResult:
         return sum(r.amount for r in self.rows)
 
     @property
+    def total_usage_count(self) -> int:
+        return sum(r.usage_count for r in self.rows)
+
+    @property
     def remaining_mg(self) -> Optional[int]:
         if self.prev_mg_balance is not None:
             return self.prev_mg_balance - self.total_amount
