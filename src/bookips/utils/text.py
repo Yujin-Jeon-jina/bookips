@@ -132,5 +132,73 @@ def same_subject(title_a: str, title_b: str) -> bool:
     subj_a = extract_subject(title_a)
     subj_b = extract_subject(title_b)
     if not subj_a or not subj_b:
-        return True  # 과목을 알 수 없으면 필터링하지 않음
+        return True
     return subj_a == subj_b
+
+
+# ─── 핵심 속성 추출 (학년, 레벨, 권수 등) ───────────────────
+
+def extract_attributes(title: str) -> dict:
+    """도서명에서 학년/레벨/권수 등 핵심 구분 속성 추출.
+
+    이 속성이 다르면 아무리 제목이 비슷해도 다른 책.
+    """
+    if not title:
+        return {}
+
+    attrs = {}
+
+    # 학년: 1학년~6학년, 중1~중3, 고1~고3
+    m = re.search(r'(\d)\s*학년', title)
+    if m:
+        attrs["grade"] = m.group(1)
+
+    m = re.search(r'[중고]\s*(\d)', title)
+    if m:
+        attrs["school_grade"] = m.group(0).replace(" ", "")
+
+    # 레벨: Level 1, Level 2, L1, L2
+    m = re.search(r'[Ll]evel\s*(\d)', title)
+    if m:
+        attrs["level"] = m.group(1)
+    else:
+        m = re.search(r'\bL(\d)\b', title)
+        if m:
+            attrs["level"] = m.group(1)
+
+    # 권수/회수: 1권, 2권, 21회, 28회
+    m = re.search(r'(\d+)\s*[권회]', title)
+    if m:
+        attrs["volume"] = m.group(1)
+
+    # 상/하
+    if re.search(r'[(\s]상[)\s]|상권', title):
+        attrs["part"] = "상"
+    elif re.search(r'[(\s]하[)\s]|하권', title):
+        attrs["part"] = "하"
+
+    # 학기: 1학기, 2학기
+    m = re.search(r'(\d)\s*학기', title)
+    if m:
+        attrs["semester"] = m.group(1)
+
+    return attrs
+
+
+def attributes_compatible(title_a: str, title_b: str) -> bool:
+    """두 도서의 핵심 속성이 호환되는지 확인.
+
+    하나라도 충돌하면 False (다른 책).
+    한쪽에만 속성이 있으면 True (판단 불가 → 허용).
+    """
+    attrs_a = extract_attributes(title_a)
+    attrs_b = extract_attributes(title_b)
+
+    for key in set(attrs_a.keys()) | set(attrs_b.keys()):
+        val_a = attrs_a.get(key)
+        val_b = attrs_b.get(key)
+        # 둘 다 있는데 값이 다르면 → 다른 책
+        if val_a is not None and val_b is not None and val_a != val_b:
+            return False
+
+    return True
