@@ -8,8 +8,19 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-# 프로젝트 루트 디렉토리
-ROOT_DIR = Path(__file__).parent.parent.parent
+# 프로젝트 루트 디렉토리 (config/settings.yaml이 있는 곳)
+def _find_root() -> Path:
+    # 1. 소스에서 직접 실행 시
+    candidate = Path(__file__).parent.parent.parent
+    if (candidate / "config" / "settings.yaml").exists():
+        return candidate
+    # 2. Buildpacks (/workspace) 또는 Docker (/app)
+    for p in [Path("/workspace"), Path("/app"), Path.cwd()]:
+        if (p / "config" / "settings.yaml").exists():
+            return p
+    return candidate
+
+ROOT_DIR = _find_root()
 
 
 def _load_yaml(path: Path) -> dict:
