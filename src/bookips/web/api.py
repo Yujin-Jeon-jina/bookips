@@ -37,11 +37,15 @@ async def get_publishers(request: Request):
 async def settlement_preview(
     request: Request,
     publisher: str = Form(...),
+    year: int = Form(2026),
+    month: int = Form(1),
+    prev_file_url: str = Form(""),
 ):
     from bookips.settlement.engine import SettlementEngine
     try:
         engine = SettlementEngine()
-        result = engine.preview_settlement(publisher)
+        result = engine.run_settlement(publisher, year, month, dry_run=True)
+        result.prev_file_url = prev_file_url  # 템플릿에서 시트저장 시 전달
     except Exception as e:
         logger.error("정산 미리보기 실패: %s", e)
         return _render(request, "components/error.html", error=str(e))
@@ -55,11 +59,12 @@ async def settlement_execute(
     publisher: str = Form(...),
     year: int = Form(...),
     month: int = Form(...),
+    prev_file_url: str = Form(""),
 ):
     from bookips.settlement.engine import SettlementEngine
     try:
         engine = SettlementEngine()
-        result = engine.run_settlement(publisher, year, month, dry_run=False)
+        result = engine.run_settlement(publisher, year, month, dry_run=False, prev_file_url=prev_file_url)
     except Exception as e:
         logger.error("정산 실행 실패: %s", e)
         return _render(request, "components/error.html", error=str(e))

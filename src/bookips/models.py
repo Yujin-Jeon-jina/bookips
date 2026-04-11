@@ -125,6 +125,7 @@ class SettlementResult:
     rows: list[SettlementRow] = field(default_factory=list)
     unmatched: list[UnmatchedRecord] = field(default_factory=list)
     new_file_url: str = ""
+    prev_file_url: str = ""  # 전월 파일 URL (사용자 입력, 시트저장 시 전달용)
 
     @property
     def total_amount(self) -> int:

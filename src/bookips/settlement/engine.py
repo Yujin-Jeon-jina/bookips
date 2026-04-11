@@ -55,6 +55,7 @@ class SettlementEngine:
         year: int,
         month: int,
         dry_run: bool = False,
+        prev_file_url: str = "",
     ) -> SettlementResult:
         """특정 출판사의 월별 정산 실행.
 
@@ -128,7 +129,7 @@ class SettlementEngine:
         if not dry_run and settlement_rows:
             try:
                 new_file_url = self._write_to_sheets(
-                    publisher, year, month, settlement_rows
+                    publisher, year, month, settlement_rows, prev_file_url
                 )
                 result.new_file_url = new_file_url
             except Exception as e:
@@ -215,58 +216,59 @@ class SettlementEngine:
         year: int,
         month: int,
         rows: list[SettlementRow],
+        prev_file_url: str = "",
     ) -> str:
         """정산 결과를 Google Sheets에 반영.
 
-        1. 전월 Link에서 파일 ID 추출
-        2. 파일 복사
-        3. 데이터 쓰기
-        4. Link 업데이트
+        사용자가 전월 파일 URL을 제공하면 그 파일을 복사.
+        제공하지 않으면 정산 메인 시트에서 전월 Link를 자동 탐색.
         """
         settings = get_settings()
         client = get_google_client()
 
-        # 메인 시트 전체 값 로드
-        all_values = client.get_all_values(
-            settings.settlement.spreadsheet_id,
-            settings.settlement.summary_worksheet,
-        )
+        # 전월 파일 ID 결정
+        prev_file_id = None
 
-        # 출판사 블록 찾기
-        block = find_publisher_block(all_values, publisher)
-        if not block:
-            raise RuntimeError(f"정산 메인 시트에서 '{publisher}' 블록을 찾을 수 없습니다")
+        # 1순위: 사용자가 직접 입력한 전월 파일 URL
+        if prev_file_url and prev_file_url.strip():
+            prev_file_id = client.get_file_id_from_url(prev_file_url.strip())
+            if prev_file_id:
+                logger.info("사용자 입력 전월 파일 사용: %s", prev_file_id)
 
-        # 전월 컬럼 찾기
-        prev_month = month - 1
-        prev_year = year
-        if prev_month == 0:
-            prev_month = 12
-            prev_year -= 1
-
-        item_row_values = all_values[block["item_row"]]
-        prev_col = find_month_column(item_row_values, prev_year, prev_month)
-        curr_col = find_month_column(item_row_values, year, month)
-
-        if prev_col is None:
-            raise RuntimeError(
-                f"전월({prev_year}-{prev_month:02d}) 컬럼을 찾을 수 없습니다"
-            )
-
-        # 전월 Link에서 파일 ID 추출
-        prev_link = get_evidence_link(
-            settings.settlement.spreadsheet_id,
-            settings.settlement.summary_worksheet,
-            block["evidence_row"],
-            prev_col,
-        )
-
-        if not prev_link:
-            raise RuntimeError(f"전월 증빙 Link가 없습니다 (row={block['evidence_row']}, col={prev_col})")
-
-        prev_file_id = client.get_file_id_from_url(prev_link)
+        # 2순위: 정산 메인 시트에서 자동 탐색
         if not prev_file_id:
-            raise RuntimeError(f"전월 Link에서 파일 ID를 추출할 수 없습니다: {prev_link}")
+            try:
+                all_values = client.get_all_values(
+                    settings.settlement.spreadsheet_id,
+                    settings.settlement.summary_worksheet,
+                )
+                block = find_publisher_block(all_values, publisher)
+                if block:
+                    prev_month = month - 1
+                    prev_year = year
+                    if prev_month == 0:
+                        prev_month = 12
+                        prev_year -= 1
+
+                    item_row_values = all_values[block["item_row"]]
+                    prev_col = find_month_column(item_row_values, prev_year, prev_month)
+
+                    if prev_col is not None:
+                        prev_link = get_evidence_link(
+                            settings.settlement.spreadsheet_id,
+                            settings.settlement.summary_worksheet,
+                            block["evidence_row"],
+                            prev_col,
+                        )
+                        if prev_link:
+                            prev_file_id = client.get_file_id_from_url(prev_link)
+            except Exception as e:
+                logger.warning("메인 시트 자동 탐색 실패: %s", e)
+
+        if not prev_file_id:
+            raise RuntimeError(
+                "전월 정산 파일을 찾을 수 없습니다. '전월 정산파일 URL'을 직접 입력해 주세요."
+            )
 
         # 파일 복사
         new_file_id = copy_settlement_file(prev_file_id, publisher, year, month)
@@ -274,15 +276,26 @@ class SettlementEngine:
         # 데이터 쓰기
         write_settlement_data(new_file_id, rows)
 
-        # Link 업데이트 (당월 컬럼이 있으면)
-        if curr_col is not None:
-            update_evidence_link(
+        # 메인 시트 Link 업데이트 시도
+        try:
+            all_values = client.get_all_values(
                 settings.settlement.spreadsheet_id,
                 settings.settlement.summary_worksheet,
-                block["evidence_row"],
-                curr_col,
-                new_file_id,
             )
+            block = find_publisher_block(all_values, publisher)
+            if block:
+                item_row_values = all_values[block["item_row"]]
+                curr_col = find_month_column(item_row_values, year, month)
+                if curr_col is not None:
+                    update_evidence_link(
+                        settings.settlement.spreadsheet_id,
+                        settings.settlement.summary_worksheet,
+                        block["evidence_row"],
+                        curr_col,
+                        new_file_id,
+                    )
+        except Exception as e:
+            logger.warning("메인 시트 Link 업데이트 스킵: %s", e)
 
         new_url = client.get_spreadsheet_url(new_file_id)
         logger.info("정산 완료: %s → %s", publisher, new_url)

@@ -123,6 +123,7 @@
             <input type="hidden" name="publisher" value="{{ result.publisher }}">
             <input type="hidden" name="year" value="{{ result.period.split('-')[0] }}">
             <input type="hidden" name="month" value="{{ result.period.split('-')[1]|int }}">
+            <input type="hidden" name="prev_file_url" value="{{ result.prev_file_url|default('') }}">
             <button type="submit" class="btn-submit"
                     onclick="return confirm('정산 파일을 생성하고 시트에 저장하시겠습니까?')">
                 시트에 저장
