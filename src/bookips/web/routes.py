@@ -13,19 +13,26 @@ templates = Jinja2Templates(directory=str(ROOT_DIR / "templates"))
 
 
 def _ctx(request: Request, **kwargs) -> dict:
-    """템플릿 공통 컨텍스트"""
+    """템플릿 공통 컨텍스트 (request 제외)"""
     client = get_google_client()
-    return {"request": request, "authenticated": client.is_authenticated, **kwargs}
+    return {"authenticated": client.is_authenticated, **kwargs}
+
+
+def _render(request: Request, name: str, **kwargs):
+    """Starlette 버전 호환 TemplateResponse"""
+    ctx = _ctx(request, **kwargs)
+    ctx["request"] = request
+    return templates.TemplateResponse(name, ctx)
 
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    return templates.TemplateResponse(name="dashboard.html", context=_ctx(request))
+    return _render(request, "dashboard.html")
 
 
 @router.get("/settlement", response_class=HTMLResponse)
 async def settlement_page(request: Request):
-    return templates.TemplateResponse(name="settlement.html", context=_ctx(request))
+    return _render(request, "settlement.html")
 
 
 @router.get("/mapping", response_class=HTMLResponse)
@@ -33,9 +40,9 @@ async def mapping_page(request: Request):
     from bookips.isbn.cache import ISBNCache
     cache = ISBNCache()
     mappings = cache.list_mappings()
-    return templates.TemplateResponse(name="mapping.html", context=_ctx(request, mappings=mappings))
+    return _render(request, "mapping.html", mappings=mappings)
 
 
 @router.get("/isbn/lookup", response_class=HTMLResponse)
 async def isbn_lookup_page(request: Request):
-    return templates.TemplateResponse(name="isbn_lookup.html", context=_ctx(request))
+    return _render(request, "isbn_lookup.html")

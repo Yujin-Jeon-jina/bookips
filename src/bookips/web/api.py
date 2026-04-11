@@ -17,6 +17,12 @@ templates = Jinja2Templates(directory=str(ROOT_DIR / "templates"))
 logger = logging.getLogger(__name__)
 
 
+def _render(request: Request, name: str, **kwargs):
+    """Starlette 버전 호환 TemplateResponse"""
+    ctx = {"request": request, **kwargs}
+    return templates.TemplateResponse(name, ctx)
+
+
 @router.get("/publishers", response_class=HTMLResponse)
 async def get_publishers(request: Request):
     """출판사 목록 조회 → select option HTML"""
@@ -45,15 +51,9 @@ async def settlement_preview(
         result = engine.preview_settlement(publisher)
     except Exception as e:
         logger.error("정산 미리보기 실패: %s", e)
-        return templates.TemplateResponse(
-            name="components/error.html",
-            context={"request": request, "error": str(e)},
-        )
+        return _render(request, "components/error.html", error=str(e))
 
-    return templates.TemplateResponse(
-        name="components/settlement_result.html",
-        context={"request": request, "result": result},
-    )
+    return _render(request, "components/settlement_result.html", result=result)
 
 
 @router.post("/settlement/execute", response_class=HTMLResponse)
@@ -71,15 +71,9 @@ async def settlement_execute(
         result = engine.run_settlement(publisher, year, month, dry_run=False)
     except Exception as e:
         logger.error("정산 실행 실패: %s", e)
-        return templates.TemplateResponse(
-            name="components/error.html",
-            context={"request": request, "error": str(e)},
-        )
+        return _render(request, "components/error.html", error=str(e))
 
-    return templates.TemplateResponse(
-        name="components/settlement_result.html",
-        context={"request": request, "result": result, "executed": True},
-    )
+    return _render(request, "components/settlement_result.html", result=result, executed=True)
 
 
 @router.post("/mapping/add", response_class=HTMLResponse)
@@ -101,10 +95,7 @@ async def add_mapping(
     )
 
     mappings = cache.list_mappings()
-    return templates.TemplateResponse(
-        name="components/mapping_table.html",
-        context={"request": request, "mappings": mappings},
-    )
+    return _render(request, "components/mapping_table.html", mappings=mappings)
 
 
 @router.post("/mapping/delete", response_class=HTMLResponse)
@@ -119,10 +110,7 @@ async def delete_mapping(
     cache.delete_mapping(usage_isbn)
 
     mappings = cache.list_mappings()
-    return templates.TemplateResponse(
-        name="components/mapping_table.html",
-        context={"request": request, "mappings": mappings},
-    )
+    return _render(request, "components/mapping_table.html", mappings=mappings)
 
 
 @router.get("/isbn/search", response_class=HTMLResponse)
@@ -138,7 +126,4 @@ async def isbn_search(
     norm = normalize_isbn(isbn)
     metadata = client.lookup_isbn(norm)
 
-    return templates.TemplateResponse(
-        name="components/isbn_result.html",
-        context={"request": request, "isbn": norm, "metadata": metadata},
-    )
+    return _render(request, "components/isbn_result.html", isbn=norm, metadata=metadata)
