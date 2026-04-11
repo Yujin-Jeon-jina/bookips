@@ -23,7 +23,7 @@ from bookips.models import (
     ISBNMatch,
     UnmatchedRecord,
 )
-from bookips.utils.text import combined_score, title_similarity
+from bookips.utils.text import combined_score, same_subject, title_similarity
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +199,10 @@ class ISBNMatcher:
         best_book: Optional[ContractBook] = None
 
         for book in self._contracts:
+            # 과목 필터: 과목이 다르면 스킵
+            if not same_subject(metadata.title, book.title):
+                continue
+
             # 같은 출판사 우선
             bonus = self._settings.same_publisher_bonus if (
                 publisher and book.publisher == publisher
@@ -248,11 +252,16 @@ class ISBNMatcher:
         if metadata and metadata.title:
             scored = []
             for book in self._contracts:
+                # 과목 필터: 과목이 다르면 후보에서 제외
+                if not same_subject(metadata.title, book.title):
+                    continue
+
                 bonus = self._settings.same_publisher_bonus if (
                     publisher and book.publisher == publisher
                 ) else 0.0
                 score = title_similarity(metadata.title, book.title) + bonus
-                scored.append((book, min(score, 1.0)))
+                if score >= 0.80:  # 80% 이상만 후보로
+                    scored.append((book, min(score, 1.0)))
 
             scored.sort(key=lambda x: x[1], reverse=True)
             candidates = scored[:3]

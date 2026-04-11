@@ -103,3 +103,34 @@ def combined_score(
         return t_sim
     a_sim = author_similarity(author_a, author_b)
     return title_weight * t_sim + author_weight * a_sim
+
+
+# ─── 과목 키워드 추출 ───────────────────────────────────────
+
+_SUBJECT_KEYWORDS = [
+    "국어", "수학", "영어", "사회", "과학", "역사", "도덕", "윤리",
+    "물리", "화학", "생물", "생명", "지구과학", "지학",
+    "한국사", "세계사", "경제", "정치", "법", "지리",
+    "화법", "작문", "독서", "문학", "언어", "매체",
+    "미적분", "기하", "확률", "통계", "대수", "공통수학",
+    "Grammar", "Reading", "Listening", "Voca", "VOCA",
+]
+
+
+def extract_subject(title: str) -> str:
+    """도서명에서 과목 키워드 추출. 없으면 빈 문자열."""
+    if not title:
+        return ""
+    for kw in _SUBJECT_KEYWORDS:
+        if kw in title:
+            return kw
+    return ""
+
+
+def same_subject(title_a: str, title_b: str) -> bool:
+    """두 도서명의 과목이 같은지 비교. 둘 다 과목이 없으면 True."""
+    subj_a = extract_subject(title_a)
+    subj_b = extract_subject(title_b)
+    if not subj_a or not subj_b:
+        return True  # 과목을 알 수 없으면 필터링하지 않음
+    return subj_a == subj_b
