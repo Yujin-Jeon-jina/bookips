@@ -42,11 +42,12 @@ def _parse_price(value: str) -> int:
         return 0
 
 
-def read_contract_books(publisher_filter: Optional[str] = None) -> list[ContractBook]:
+def read_contract_books(publisher_filter: Optional[str] = None, active_only: bool = True) -> list[ContractBook]:
     """계약도서 시트에서 전체 또는 특정 출판사의 계약도서 목록 읽기.
 
     Args:
         publisher_filter: 특정 출판사명으로 필터링. None이면 전체.
+        active_only: True면 현재 날짜 기준 유효한 계약만 반환.
 
     Returns:
         ContractBook 리스트
@@ -92,11 +93,20 @@ def read_contract_books(publisher_filter: Optional[str] = None) -> list[Contract
             end_date=_parse_date(end_date_str),
             raw_isbn=raw_isbn,
         )
+
+        # 계약 기간 필터: 현재일이 시작일~종료일 사이인 것만
+        if active_only:
+            today = date.today()
+            if not book.is_active(today):
+                continue
+
         books.append(book)
 
+    total_before_filter = row_idx - cfg.header_rows
     logger.info(
-        "계약도서 %d건 로드 (필터: %s)",
+        "계약도서 %d건 로드 (전체 %d건 중 유효 계약만, 필터: %s)",
         len(books),
+        total_before_filter,
         publisher_filter or "전체",
     )
     return books
