@@ -87,6 +87,29 @@ async def add_mapping(
     return _render(request, "components/mapping_table.html", mappings=mappings)
 
 
+@router.post("/mapping/add-bulk", response_class=HTMLResponse)
+async def add_mapping_bulk(request: Request):
+    """여러 ISBN 매핑 일괄 추가"""
+    from bookips.isbn.cache import ISBNCache
+    from bookips.isbn.normalizer import normalize_isbn
+
+    form = await request.form()
+    usage_isbns = form.getlist("usage_isbns")
+    contract_isbns = form.getlist("contract_isbns")
+
+    cache = ISBNCache()
+    count = 0
+    for u, c in zip(usage_isbns, contract_isbns):
+        u, c = u.strip(), c.strip()
+        if u and c:
+            cache.save_mapping(normalize_isbn(u), normalize_isbn(c), "manual", 1.0)
+            count += 1
+
+    logger.info("수동 매핑 %d건 일괄 추가", count)
+    mappings = cache.list_mappings()
+    return _render(request, "components/mapping_table.html", mappings=mappings)
+
+
 @router.post("/mapping/delete", response_class=HTMLResponse)
 async def delete_mapping(
     request: Request,

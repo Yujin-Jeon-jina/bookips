@@ -113,6 +113,28 @@
         </tbody>
     </table>
     <div id="mapping-status"></div>
+
+    <div class="form-actions" style="margin-top:16px">
+        <form action="/mapping" method="get" style="display:inline">
+            <button type="submit" class="btn btn-primary">매핑 관리 페이지로 이동</button>
+        </form>
+        <form hx-post="/api/mapping/add-bulk"
+              hx-target="#mapping-status"
+              hx-swap="innerHTML"
+              style="display:inline">
+            {% for um in result.unmatched %}
+                {% if um.candidates %}
+                    {% set best_book, best_score = um.candidates[0] %}
+                    <input type="hidden" name="usage_isbns" value="{{ um.usage_isbn }}">
+                    <input type="hidden" name="contract_isbns" value="{{ best_book.isbn }}">
+                {% endif %}
+            {% endfor %}
+            <button type="submit" class="btn-small"
+                    onclick="return confirm('모든 미매칭 항목의 1순위 후보를 매핑하시겠습니까?')">
+                전체 1순위 일괄 매핑
+            </button>
+        </form>
+    </div>
     {% endif %}
 
     {% if not executed|default(false) %}

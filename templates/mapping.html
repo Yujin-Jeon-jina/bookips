@@ -8,26 +8,53 @@
 
     <div class="card">
         <h2>수동 매핑 추가</h2>
-        <form class="form-row"
-              hx-post="/api/mapping/add"
+        <form id="mapping-form"
+              hx-post="/api/mapping/add-bulk"
               hx-target="#mapping-table"
               hx-swap="outerHTML">
-            <div class="form-group">
-                <label for="usage_isbn">사용 ISBN</label>
-                <input type="text" name="usage_isbn" id="usage_isbn"
-                       placeholder="9781234567890" required>
-            </div>
-            <div class="form-group">
-                <label for="contract_isbn">계약 ISBN</label>
-                <input type="text" name="contract_isbn" id="contract_isbn"
-                       placeholder="9789876543210" required>
-            </div>
-            <div class="form-group" style="align-self:flex-end">
-                <button type="submit" class="btn-submit">추가</button>
+            <table class="mapping-input-table">
+                <thead>
+                    <tr>
+                        <th>사용 ISBN</th>
+                        <th>계약 ISBN</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="mapping-rows">
+                    <tr class="mapping-row">
+                        <td><input type="text" name="usage_isbns" placeholder="9781234567890" required></td>
+                        <td><input type="text" name="contract_isbns" placeholder="9789876543210" required></td>
+                        <td><button type="button" class="btn-small btn-danger" onclick="removeRow(this)">삭제</button></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="form-actions">
+                <button type="button" class="btn-small" onclick="addRow()">+ 행 추가</button>
+                <button type="submit" class="btn-submit">일괄 추가</button>
             </div>
         </form>
     </div>
 
     {% include "components/mapping_table.html" %}
 </div>
+
+<script>
+function addRow() {
+    const tbody = document.getElementById('mapping-rows');
+    const row = document.createElement('tr');
+    row.className = 'mapping-row';
+    row.innerHTML = `
+        <td><input type="text" name="usage_isbns" placeholder="9781234567890" required></td>
+        <td><input type="text" name="contract_isbns" placeholder="9789876543210" required></td>
+        <td><button type="button" class="btn-small btn-danger" onclick="removeRow(this)">삭제</button></td>
+    `;
+    tbody.appendChild(row);
+}
+function removeRow(btn) {
+    const tbody = document.getElementById('mapping-rows');
+    if (tbody.children.length > 1) {
+        btn.closest('tr').remove();
+    }
+}
+</script>
 {% endblock %}
