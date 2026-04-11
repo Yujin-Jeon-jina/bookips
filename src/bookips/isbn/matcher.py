@@ -81,8 +81,8 @@ class ISBNMatcher:
             if result:
                 return result
 
-            # Stage 4: 퍼지 매칭
-            result = self._stage4_fuzzy(norm_isbn, metadata, publisher, book_name)
+            # Stage 4: 네이버 API로 관련 판본 자동 검색
+            result = self._stage4_naver_search(norm_isbn, metadata)
             if result:
                 return result
 
@@ -182,65 +182,47 @@ class ISBNMatcher:
 
     # ─── Stage 4: 퍼지 매칭 ────────────────────────────────────
 
-    def _stage4_fuzzy(
+    def _stage4_naver_search(
         self,
         norm_isbn: str,
         metadata: BookMetadata,
-        publisher: str = "",
-        book_name: str = "",
     ) -> Optional[ISBNMatch]:
-        """국립중앙도서관 API 서지정보 기반 퍼지 매칭.
+        """네이버 API로 관련 판본 검색 → 계약 ISBN과 정확 매칭.
 
-        API에서 조회한 정확한 도서명을 사용하여 계약도서와 비교.
-        API 조회 실패 시 매칭하지 않음 (오매칭 방지).
-        book_name(사용량 시트)의 속성도 함께 검증하여 오매칭 방지.
+        도서명으로 네이버 검색 → 나온 ISBN들을 계약 목록과 대조.
+        ISBN이 정확히 일치하는 경우만 매칭 (퍼지 없음).
         """
-        if not metadata.title:
-            logger.debug("Stage 4 스킵: API 도서명 없음 (%s)", norm_isbn)
+        if not self._naver.is_configured:
             return None
 
-        best_score = 0.0
-        best_book: Optional[ContractBook] = None
+        if not metadata.title:
+            return None
 
-        for book in self._contracts:
-            # 과목 필터: 과목이 다르면 스킵
-            if not same_subject(metadata.title, book.title):
-                continue
+        # 네이버에서 관련 도서 검색
+        contract_isbn_set = set(self._isbn_index.keys())
+        matches = self._naver.find_related_isbns(norm_isbn, contract_isbn_set)
 
-            # 핵심 속성 필터: API 도서명(NL+네이버 보완)으로 체크
-            if not attributes_compatible(metadata.title, book.title):
-                continue
+        if not matches:
+            # NL API의 find_related_isbns도 시도
+            nl_matches = self._api.find_related_isbns(norm_isbn, contract_isbn_set)
+            matches = nl_matches
 
-            # 같은 출판사 우선
-            bonus = self._settings.same_publisher_bonus if (
-                publisher and book.publisher == publisher
-            ) else 0.0
-
-            score = combined_score(
-                metadata.title, book.title,
-                metadata.author, "",
-            ) + bonus
-
-            if score > best_score:
-                best_score = score
-                best_book = book
-
-        if best_book and best_score >= self._settings.combined_threshold:
-            logger.debug(
-                "Stage 4 퍼지: %s → %s (%.2f) [%s ↔ %s]",
-                norm_isbn, best_book.isbn, best_score,
-                metadata.title, best_book.title,
-            )
-            match = ISBNMatch(
-                usage_isbn=norm_isbn,
-                contract_isbn=best_book.isbn,
-                contract_book=best_book,
-                match_method="fuzzy",
-                confidence=min(best_score, 1.0),
-            )
-            # fuzzy는 100%가 아니므로 캐시에 저장하지 않음
-            # 100% 확실한 매핑만 저장 (direct/manual)
-            return match
+        if matches:
+            # 첫 번째 매칭 사용 (ISBN이 정확히 일치하는 것만)
+            contract_isbn, found_title = matches[0]
+            book = self._isbn_index.get(contract_isbn)
+            if book:
+                logger.info(
+                    "Stage 4 네이버 자동: %s → %s [%s]",
+                    norm_isbn, contract_isbn, found_title[:30],
+                )
+                return ISBNMatch(
+                    usage_isbn=norm_isbn,
+                    contract_isbn=contract_isbn,
+                    contract_book=book,
+                    match_method="naver_auto",
+                    confidence=0.95,
+                )
 
         return None
 
@@ -253,28 +235,22 @@ class ISBNMatcher:
         book_name: str,
         metadata: Optional[BookMetadata],
     ) -> UnmatchedRecord:
-        """매칭 실패 → 후보 목록과 함께 반환"""
+        """매칭 실패 → 네이버 자동 검색 결과를 후보로 제시"""
         candidates: list[tuple[ContractBook, float]] = []
 
-        if metadata and metadata.title:
-            scored = []
-            for book in self._contracts:
-                # 과목 필터
-                if not same_subject(metadata.title, book.title):
-                    continue
-                # 핵심 속성 필터: API 도서명(NL+네이버 보완)으로 체크
-                if not attributes_compatible(metadata.title, book.title):
-                    continue
+        # 네이버/NL API로 관련 판본 검색 → 계약 목록에 있는 ISBN 찾기
+        contract_isbn_set = set(self._isbn_index.keys())
+        related: list[tuple[str, str]] = []
 
-                bonus = self._settings.same_publisher_bonus if (
-                    publisher and book.publisher == publisher
-                ) else 0.0
-                score = title_similarity(metadata.title, book.title) + bonus
-                if score >= 0.80:
-                    scored.append((book, min(score, 1.0)))
+        if self._naver.is_configured:
+            related = self._naver.find_related_isbns(norm_isbn, contract_isbn_set)
+        if not related:
+            related = self._api.find_related_isbns(norm_isbn, contract_isbn_set)
 
-            scored.sort(key=lambda x: x[1], reverse=True)
-            candidates = scored[:3]
+        for contract_isbn, title in related[:3]:
+            book = self._isbn_index.get(contract_isbn)
+            if book:
+                candidates.append((book, 0.95))
 
         logger.debug("Stage 5 미매칭: %s (%s) — 후보 %d개", norm_isbn, book_name, len(candidates))
 

@@ -108,3 +108,43 @@ class NaverBookClient:
             publisher=publisher,
             publish_date=item.get("pubdate", ""),
         )
+
+    def find_related_isbns(
+        self,
+        isbn: str,
+        contract_isbns: set[str],
+    ) -> list[tuple[str, str]]:
+        """미매칭 ISBN의 다른 판본 중 계약 목록에 있는 ISBN 찾기.
+
+        1. ISBN으로 도서 정보 조회
+        2. 도서명으로 관련 도서 검색
+        3. 계약 ISBN 목록과 대조
+
+        Returns:
+            [(contract_isbn, 도서 제목), ...]
+        """
+        if not self.is_configured:
+            return []
+
+        meta = self.search_by_isbn(isbn)
+        if not meta or not meta.title:
+            return []
+
+        import time
+        time.sleep(0.3)
+
+        related = self.search_by_title(meta.title, display=20)
+
+        matches = []
+        for book in related:
+            norm = book.ea_isbn.replace("-", "").strip()
+            if norm in contract_isbns and norm != isbn:
+                matches.append((norm, book.title))
+
+        if matches:
+            logger.info(
+                "네이버: ISBN %s (%s) → 계약 목록에서 관련 판본 %d건",
+                isbn, meta.title[:20], len(matches),
+            )
+
+        return matches
