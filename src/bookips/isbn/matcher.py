@@ -199,10 +199,6 @@ class ISBNMatcher:
             logger.debug("Stage 4 스킵: API 도서명 없음 (%s)", norm_isbn)
             return None
 
-        # 사용량 시트 book_name에서 속성 추출 (API에 없는 학년 등 보완)
-        from bookips.utils.text import extract_attributes
-        usage_attrs = extract_attributes(book_name) if book_name else {}
-
         best_score = 0.0
         best_book: Optional[ContractBook] = None
 
@@ -211,20 +207,9 @@ class ISBNMatcher:
             if not same_subject(metadata.title, book.title):
                 continue
 
-            # 핵심 속성 필터: API 도서명으로 체크
+            # 핵심 속성 필터: API 도서명(NL+네이버 보완)으로 체크
             if not attributes_compatible(metadata.title, book.title):
                 continue
-
-            # book_name 속성으로 추가 체크 (API에 학년 없어도 book_name에 있으면 비교)
-            if usage_attrs:
-                contract_attrs = extract_attributes(book.title)
-                conflict = False
-                for key in set(usage_attrs.keys()) & set(contract_attrs.keys()):
-                    if usage_attrs[key] != contract_attrs[key]:
-                        conflict = True
-                        break
-                if conflict:
-                    continue
 
             # 같은 출판사 우선
             bonus = self._settings.same_publisher_bonus if (
@@ -272,29 +257,15 @@ class ISBNMatcher:
         """매칭 실패 → 후보 목록과 함께 반환"""
         candidates: list[tuple[ContractBook, float]] = []
 
-        # book_name에서 속성 추출 (API에 없는 학년 등 보완)
-        from bookips.utils.text import extract_attributes
-        usage_attrs = extract_attributes(book_name) if book_name else {}
-
         if metadata and metadata.title:
             scored = []
             for book in self._contracts:
                 # 과목 필터
                 if not same_subject(metadata.title, book.title):
                     continue
-                # 핵심 속성 필터: API 도서명으로 체크
+                # 핵심 속성 필터: API 도서명(NL+네이버 보완)으로 체크
                 if not attributes_compatible(metadata.title, book.title):
                     continue
-                # book_name 속성으로 추가 체크
-                if usage_attrs:
-                    contract_attrs = extract_attributes(book.title)
-                    conflict = False
-                    for key in set(usage_attrs.keys()) & set(contract_attrs.keys()):
-                        if usage_attrs[key] != contract_attrs[key]:
-                            conflict = True
-                            break
-                    if conflict:
-                        continue
 
                 bonus = self._settings.same_publisher_bonus if (
                     publisher and book.publisher == publisher

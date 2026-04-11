@@ -188,17 +188,27 @@ def extract_attributes(title: str) -> dict:
 def attributes_compatible(title_a: str, title_b: str) -> bool:
     """두 도서의 핵심 속성이 호환되는지 확인.
 
-    하나라도 충돌하면 False (다른 책).
-    한쪽에만 속성이 있으면 True (판단 불가 → 허용).
+    - 둘 다 있는데 값이 다르면 → False (다른 책)
+    - 한쪽에만 학년/레벨이 있으면 → False (불확실 → 안전하게 차단)
+    - 둘 다 없으면 → True
     """
     attrs_a = extract_attributes(title_a)
     attrs_b = extract_attributes(title_b)
 
+    # 핵심 속성: 한쪽에만 있어도 차단해야 하는 것들
+    critical_keys = {"grade", "school_grade", "level", "volume", "semester"}
+
     for key in set(attrs_a.keys()) | set(attrs_b.keys()):
         val_a = attrs_a.get(key)
         val_b = attrs_b.get(key)
-        # 둘 다 있는데 값이 다르면 → 다른 책
-        if val_a is not None and val_b is not None and val_a != val_b:
-            return False
+
+        if val_a is not None and val_b is not None:
+            # 둘 다 있는데 다르면 → 다른 책
+            if val_a != val_b:
+                return False
+        elif key in critical_keys:
+            # 핵심 속성이 한쪽에만 있으면 → 불확실 → 차단
+            if val_a is not None or val_b is not None:
+                return False
 
     return True
