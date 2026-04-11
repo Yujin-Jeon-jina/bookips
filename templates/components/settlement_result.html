@@ -66,7 +66,14 @@
                     {% endfor %}
                 </td>
                 <td style="text-align:right">{{ row.usage_count }}</td>
-                <td style="text-align:right">₩{{ "{:,}".format(row.unit_price) }}</td>
+                <td style="text-align:right">
+                    ₩{{ "{:,}".format(row.unit_price) }}
+                    {% for src in row.sources %}
+                        {% if src.usage_unit_price and src.usage_unit_price != row.unit_price %}
+                        <div><span class="badge badge-unmatched">불일치</span> <small>사용량시트: ₩{{ "{:,}".format(src.usage_unit_price) }}</small></div>
+                        {% endif %}
+                    {% endfor %}
+                </td>
                 <td style="text-align:right"><strong>₩{{ "{:,}".format(row.amount) }}</strong></td>
             </tr>
             {% endfor %}

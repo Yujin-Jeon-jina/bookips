@@ -184,6 +184,7 @@ class SettlementEngine:
                 match_method=match.match_method,
                 confidence=match.confidence,
                 book_name=rec.book_name if rec else "",
+                usage_unit_price=rec.unit_price if rec else 0,
             ))
 
             if match.contract_isbn not in contract_match:

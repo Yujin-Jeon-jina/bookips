@@ -73,6 +73,7 @@ class SourceISBN:
     match_method: str       # direct / fuzzy / cache / manual
     confidence: float
     book_name: str = ""     # 사용량 시트의 교재명
+    usage_unit_price: int = 0  # 사용량 시트의 단가 (검증용)
 
 
 @dataclass
