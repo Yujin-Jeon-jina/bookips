@@ -45,8 +45,8 @@ async def callback(request: Request):
         client.exchange_code(code)
         logger.info("Google 인증 성공")
     except Exception as e:
-        logger.error("토큰 교환 실패: %s", e)
-        return RedirectResponse(url="/?error=token_exchange_failed")
+        logger.error("토큰 교환 실패: %s", e, exc_info=True)
+        return RedirectResponse(url=f"/?error=token_exchange_failed&detail={e}")
 
     return RedirectResponse(url="/")
 
