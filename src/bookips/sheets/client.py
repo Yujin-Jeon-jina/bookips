@@ -1,35 +1,34 @@
 """Google Sheets / Drive API 클라이언트 (OAuth2 인증)
 
-OAuth2 흐름:
-  1. 웹 브라우저에서 Google 로그인 → 인증 코드 획득
-  2. 인증 코드 → 액세스 토큰 + 리프레시 토큰 교환
-  3. 토큰을 data/token.json에 저장
-  4. 이후 자동 갱신
+PKCE 없이 직접 OAuth2 플로우 구현 (Cloud Run 호환).
 """
 from __future__ import annotations
 
 import json
 import logging
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 
 import gspread
+import requests as http_requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 
 from bookips.config import ROOT_DIR, get_settings
 
 logger = logging.getLogger(__name__)
 
-# Google API 스코프
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
 
 TOKEN_PATH = ROOT_DIR / "data" / "token.json"
+
+AUTH_URL = "https://accounts.google.com/o/oauth2/auth"
+TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
 class GoogleClient:
@@ -45,20 +44,18 @@ class GoogleClient:
         return self._creds is not None and self._creds.valid
 
     def load_token(self) -> bool:
-        """저장된 토큰 로드 시도. True if valid."""
         if not TOKEN_PATH.exists():
             return False
         try:
             self._creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
         except Exception as e:
-            logger.warning("토큰 파일 로드 실패: %s", e)
+            logger.warning("토큰 로드 실패: %s", e)
             return False
 
         if self._creds and self._creds.expired and self._creds.refresh_token:
             try:
                 self._creds.refresh(Request())
                 self._save_token()
-                logger.info("토큰 갱신 완료")
             except Exception as e:
                 logger.warning("토큰 갱신 실패: %s", e)
                 return False
@@ -69,41 +66,47 @@ class GoogleClient:
         return False
 
     def get_auth_url(self) -> str:
-        """OAuth2 인증 URL 생성 (최초 인증 시)"""
+        """OAuth2 인증 URL 생성 (PKCE 없이)"""
         settings = get_settings()
-        flow = self._make_flow(settings)
-        auth_url, _ = flow.authorization_url(
-            access_type="offline",
-            include_granted_scopes="true",
-            prompt="consent",
-        )
-        return auth_url
+        params = {
+            "client_id": settings.google_client_id,
+            "redirect_uri": settings.google_redirect_uri,
+            "scope": " ".join(SCOPES),
+            "response_type": "code",
+            "access_type": "offline",
+            "prompt": "consent",
+        }
+        return f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
 
     def exchange_code(self, code: str) -> None:
-        """인증 코드 → 토큰 교환 및 저장"""
+        """인증 코드 → 토큰 교환 (PKCE 없이 직접 HTTP 요청)"""
         settings = get_settings()
-        flow = self._make_flow(settings)
-        flow.fetch_token(code=code)
-        self._creds = flow.credentials
+        resp = http_requests.post(TOKEN_URL, data={
+            "client_id": settings.google_client_id,
+            "client_secret": settings.google_client_secret,
+            "code": code,
+            "redirect_uri": settings.google_redirect_uri,
+            "grant_type": "authorization_code",
+        })
+
+        if resp.status_code != 200:
+            raise RuntimeError(f"토큰 교환 실패: {resp.status_code} {resp.text}")
+
+        token_data = resp.json()
+        if "error" in token_data:
+            raise RuntimeError(f"토큰 오류: {token_data['error']} - {token_data.get('error_description', '')}")
+
+        self._creds = Credentials(
+            token=token_data["access_token"],
+            refresh_token=token_data.get("refresh_token"),
+            token_uri=TOKEN_URL,
+            client_id=settings.google_client_id,
+            client_secret=settings.google_client_secret,
+            scopes=SCOPES,
+        )
         self._save_token()
         self._init_clients()
         logger.info("Google 인증 완료, 토큰 저장됨")
-
-    def _make_flow(self, settings) -> Flow:
-        client_config = {
-            "web": {
-                "client_id": settings.google_client_id,
-                "client_secret": settings.google_client_secret,
-                "redirect_uris": [settings.google_redirect_uri],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-        }
-        return Flow.from_client_config(
-            client_config,
-            scopes=SCOPES,
-            redirect_uri=settings.google_redirect_uri,
-        )
 
     def _save_token(self) -> None:
         TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -116,35 +119,30 @@ class GoogleClient:
     # ─── Spreadsheet 접근 ────────────────────────────────────────
 
     def open_spreadsheet(self, spreadsheet_id: str) -> gspread.Spreadsheet:
-        """스프레드시트 열기"""
         self._require_auth()
         return self._gc.open_by_key(spreadsheet_id)
 
     def get_worksheet(self, spreadsheet_id: str, title: str) -> gspread.Worksheet:
-        """특정 탭(워크시트) 가져오기"""
         ss = self.open_spreadsheet(spreadsheet_id)
         return ss.worksheet(title)
 
     def get_all_values(self, spreadsheet_id: str, worksheet_title: str) -> list[list[str]]:
-        """워크시트 전체 값 조회"""
         ws = self.get_worksheet(spreadsheet_id, worksheet_title)
         return ws.get_all_values()
 
     # ─── Drive 파일 조작 ─────────────────────────────────────────
 
     def copy_file(self, file_id: str, new_name: str) -> str:
-        """Google Drive 파일 복사 → 새 파일 ID 반환"""
         self._require_auth()
         result = self._drive.files().copy(
             fileId=file_id,
             body={"name": new_name},
         ).execute()
         new_id = result["id"]
-        logger.info("파일 복사 완료: %s → %s (%s)", file_id, new_name, new_id)
+        logger.info("파일 복사: %s → %s (%s)", file_id, new_name, new_id)
         return new_id
 
     def get_file_id_from_url(self, url: str) -> Optional[str]:
-        """Google Drive/Sheets URL에서 파일 ID 추출"""
         import re
         patterns = [
             r"/spreadsheets/d/([a-zA-Z0-9_-]+)",
@@ -165,7 +163,6 @@ class GoogleClient:
             raise RuntimeError("Google 인증이 필요합니다. /auth/login에서 인증해 주세요.")
 
 
-# 싱글턴 클라이언트 (앱 시작 시 초기화)
 _client: Optional[GoogleClient] = None
 
 
