@@ -15,6 +15,7 @@ from typing import Optional
 
 from bookips.config import get_settings
 from bookips.isbn.cache import ISBNCache
+from bookips.isbn.naver_api import NaverBookClient
 from bookips.isbn.nl_api import NLApiClient
 from bookips.isbn.normalizer import normalize_isbn
 from bookips.models import (
@@ -39,6 +40,7 @@ class ISBNMatcher:
     ) -> None:
         self._contracts = contract_books
         self._cache = cache or ISBNCache()
+        self._naver = NaverBookClient()
         self._api = api_client or NLApiClient()
         self._settings = get_settings().matching
 
@@ -301,8 +303,27 @@ class ISBNMatcher:
                 edition=cached.get("edition", ""),
             )
 
-        # API 호출
+        # 국립중앙도서관 API 호출
         metadata = self._api.lookup_isbn(norm_isbn)
+
+        # 네이버 API로 보완 (학년/레벨 등 상세 정보)
+        if self._naver.is_configured:
+            naver_meta = self._naver.search_by_isbn(norm_isbn)
+            if naver_meta and naver_meta.title:
+                if metadata:
+                    # 네이버 도서명이 더 상세하면 대체 (학년/레벨 포함 여부)
+                    from bookips.utils.text import extract_attributes
+                    nl_attrs = extract_attributes(metadata.title)
+                    nv_attrs = extract_attributes(naver_meta.title)
+                    if len(nv_attrs) > len(nl_attrs):
+                        logger.debug(
+                            "네이버 도서명 사용 (더 상세): '%s' → '%s'",
+                            metadata.title, naver_meta.title,
+                        )
+                        metadata.title = naver_meta.title
+                else:
+                    metadata = naver_meta
+
         if metadata:
             self._cache.save_metadata(
                 isbn=norm_isbn,
