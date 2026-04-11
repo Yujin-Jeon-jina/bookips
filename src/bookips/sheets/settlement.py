@@ -164,19 +164,28 @@ def write_settlement_data(
     ss = client.open_spreadsheet(file_id)
     ws = ss.sheet1  # 첫 번째 탭
 
-    # 기존 데이터 범위 파악 (헤더 행 제외하고 2행부터)
-    # 헤더(1행)는 유지, 2행부터 데이터 영역 초기화
+    # 기존 데이터 클리어 (헤더 포함 전체)
     existing = ws.get_all_values()
-    if len(existing) > 1:
-        # 2행부터 마지막 행까지 클리어
-        last_row = len(existing)
-        last_col = len(existing[0]) if existing[0] else 7
-        clear_range = f"A2:{gspread.utils.rowcol_to_a1(last_row, last_col)}"
+    if existing:
+        last_row = max(len(existing), 1)
+        last_col = max(len(existing[0]) if existing[0] else 7, 7)
+        clear_range = f"A1:{gspread.utils.rowcol_to_a1(last_row, last_col)}"
         ws.batch_clear([clear_range])
 
     if not rows:
         logger.info("쓸 데이터 없음 (file_id: %s)", file_id)
         return
+
+    # 헤더 행 쓰기
+    headers = [""] * 7
+    headers[0] = "정산 기간"
+    headers[1] = "출판사"
+    headers[2] = "isbn"
+    headers[3] = "교재명"
+    headers[4] = "등록 교재 수"
+    headers[5] = "교재 정가"
+    headers[6] = "정산 금액"
+    ws.update("A1:G1", [headers])
 
     # 데이터 변환: SettlementRow → 2D 리스트
     settings = get_settings()
