@@ -186,8 +186,13 @@ class ISBNMatcher:
         metadata: BookMetadata,
         publisher: str = "",
     ) -> Optional[ISBNMatch]:
-        """도서명 + 저자로 유사도 비교하여 매칭"""
+        """국립중앙도서관 API 서지정보 기반 퍼지 매칭.
+
+        API에서 조회한 정확한 도서명을 사용하여 계약도서와 비교.
+        API 조회 실패 시 매칭하지 않음 (오매칭 방지).
+        """
         if not metadata.title:
+            logger.debug("Stage 4 스킵: API 도서명 없음 (%s)", norm_isbn)
             return None
 
         best_score = 0.0
@@ -201,7 +206,7 @@ class ISBNMatcher:
 
             score = combined_score(
                 metadata.title, book.title,
-                metadata.author, "",  # 계약 시트에는 저자 없을 수 있음
+                metadata.author, "",
             ) + bonus
 
             if score > best_score:

@@ -45,10 +45,10 @@ nl_api:
   rate_limit_delay: 0.5     # 초 단위 API 호출 간격
 
 matching:
-  title_threshold: 0.75       # 도서명 유사도 최소값
+  title_threshold: 0.90       # 도서명 유사도 최소값 (높여서 오매칭 방지)
   author_threshold: 0.65      # 저자 유사도 최소값
-  combined_threshold: 0.70    # 결합 점수 최소값 (0.7×도서명 + 0.3×저자)
-  same_publisher_bonus: 0.05  # 같은 출판사일 때 보너스 점수
+  combined_threshold: 0.88    # 결합 점수 최소값 (엄격하게)
+  same_publisher_bonus: 0.02  # 같은 출판사 보너스 (축소)
 
 database:
   path: "data/bookips.db"
