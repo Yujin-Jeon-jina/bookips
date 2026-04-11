@@ -42,13 +42,7 @@ def read_usage_data(publisher_filter: Optional[str] = None) -> list[UsageRecord]
     cfg = settings.usage
     client = get_google_client()
 
-    try:
-        all_values = client.get_all_values(cfg.spreadsheet_id, cfg.worksheet)
-    except Exception:
-        logger.warning("워크시트 '%s' 찾기 실패, 첫 번째 시트 사용", cfg.worksheet)
-        ss = client.open_spreadsheet(cfg.spreadsheet_id)
-        ws = ss.sheet1
-        all_values = ws.get_all_values()
+    all_values = client.get_all_values(cfg.spreadsheet_id, cfg.worksheet)
 
     # Pivot 탭 상단에서 정산 기간 읽기 (행1~3: 연도, 시작일, 종료일)
     period = ""
@@ -112,13 +106,7 @@ def get_usage_period() -> str:
     cfg = settings.usage
     client = get_google_client()
 
-    try:
-        all_values = client.get_all_values(cfg.spreadsheet_id, cfg.worksheet)
-    except Exception:
-        logger.warning("워크시트 '%s' 찾기 실패, 첫 번째 시트 사용", cfg.worksheet)
-        ss = client.open_spreadsheet(cfg.spreadsheet_id)
-        ws = ss.sheet1
-        all_values = ws.get_all_values()
+    all_values = client.get_all_values(cfg.spreadsheet_id, cfg.worksheet)
 
     if len(all_values) > 2 and len(all_values[2]) > 2:
         end_date_str = all_values[2][2]  # C3 = 종료일

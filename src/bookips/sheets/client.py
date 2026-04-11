@@ -122,11 +122,16 @@ class GoogleClient:
         self._require_auth()
         return self._gc.open_by_key(spreadsheet_id)
 
-    def get_worksheet(self, spreadsheet_id: str, title: str) -> gspread.Worksheet:
+    def get_worksheet(self, spreadsheet_id: str, title: str = "") -> gspread.Worksheet:
         ss = self.open_spreadsheet(spreadsheet_id)
-        return ss.worksheet(title)
+        if title:
+            try:
+                return ss.worksheet(title)
+            except Exception:
+                pass
+        return ss.sheet1  # fallback: 첫 번째 탭
 
-    def get_all_values(self, spreadsheet_id: str, worksheet_title: str) -> list[list[str]]:
+    def get_all_values(self, spreadsheet_id: str, worksheet_title: str = "") -> list[list[str]]:
         ws = self.get_worksheet(spreadsheet_id, worksheet_title)
         return ws.get_all_values()
 

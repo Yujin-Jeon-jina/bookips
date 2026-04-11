@@ -26,7 +26,7 @@ sheets:
 
   settlement:
     spreadsheet_id: "1hA7nYY5zlQIzOjG7GwM4wmQWxEMonvoHbB74b_JPCKA"
-    summary_worksheet: "씰북 Summary"
+    summary_worksheet: ""  # 비워두면 첫 번째 탭 사용
     evidence_row_label: "증빙(정산내역)"   # Link가 있는 행 레이블
     individual_file_name_pattern: "{yy}.{mm:02d}월_{publisher}_갱신계약(MG) 적용분"
     settlement_detail_columns:    # 개별 정산 파일 첫 번째 탭 컬럼
