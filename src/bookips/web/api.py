@@ -46,13 +46,13 @@ async def settlement_preview(
     except Exception as e:
         logger.error("정산 미리보기 실패: %s", e)
         return templates.TemplateResponse(
-            "components/error.html",
-            {"request": request, "error": str(e)},
+            name="components/error.html",
+            context={"request": request, "error": str(e)},
         )
 
     return templates.TemplateResponse(
-        "components/settlement_result.html",
-        {"request": request, "result": result},
+        name="components/settlement_result.html",
+        context={"request": request, "result": result},
     )
 
 
@@ -72,13 +72,13 @@ async def settlement_execute(
     except Exception as e:
         logger.error("정산 실행 실패: %s", e)
         return templates.TemplateResponse(
-            "components/error.html",
-            {"request": request, "error": str(e)},
+            name="components/error.html",
+            context={"request": request, "error": str(e)},
         )
 
     return templates.TemplateResponse(
-        "components/settlement_result.html",
-        {"request": request, "result": result, "executed": True},
+        name="components/settlement_result.html",
+        context={"request": request, "result": result, "executed": True},
     )
 
 
@@ -102,8 +102,8 @@ async def add_mapping(
 
     mappings = cache.list_mappings()
     return templates.TemplateResponse(
-        "components/mapping_table.html",
-        {"request": request, "mappings": mappings},
+        name="components/mapping_table.html",
+        context={"request": request, "mappings": mappings},
     )
 
 
@@ -120,8 +120,8 @@ async def delete_mapping(
 
     mappings = cache.list_mappings()
     return templates.TemplateResponse(
-        "components/mapping_table.html",
-        {"request": request, "mappings": mappings},
+        name="components/mapping_table.html",
+        context={"request": request, "mappings": mappings},
     )
 
 
@@ -139,6 +139,6 @@ async def isbn_search(
     metadata = client.lookup_isbn(norm)
 
     return templates.TemplateResponse(
-        "components/isbn_result.html",
-        {"request": request, "isbn": norm, "metadata": metadata},
+        name="components/isbn_result.html",
+        context={"request": request, "isbn": norm, "metadata": metadata},
     )

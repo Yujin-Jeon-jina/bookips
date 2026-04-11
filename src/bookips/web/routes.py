@@ -20,12 +20,12 @@ def _ctx(request: Request, **kwargs) -> dict:
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", _ctx(request))
+    return templates.TemplateResponse(name="dashboard.html", context=_ctx(request))
 
 
 @router.get("/settlement", response_class=HTMLResponse)
 async def settlement_page(request: Request):
-    return templates.TemplateResponse("settlement.html", _ctx(request))
+    return templates.TemplateResponse(name="settlement.html", context=_ctx(request))
 
 
 @router.get("/mapping", response_class=HTMLResponse)
@@ -33,9 +33,9 @@ async def mapping_page(request: Request):
     from bookips.isbn.cache import ISBNCache
     cache = ISBNCache()
     mappings = cache.list_mappings()
-    return templates.TemplateResponse("mapping.html", _ctx(request, mappings=mappings))
+    return templates.TemplateResponse(name="mapping.html", context=_ctx(request, mappings=mappings))
 
 
 @router.get("/isbn/lookup", response_class=HTMLResponse)
 async def isbn_lookup_page(request: Request):
-    return templates.TemplateResponse("isbn_lookup.html", _ctx(request))
+    return templates.TemplateResponse(name="isbn_lookup.html", context=_ctx(request))
