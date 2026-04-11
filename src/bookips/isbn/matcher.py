@@ -82,7 +82,7 @@ class ISBNMatcher:
                 return result
 
             # Stage 4: 퍼지 매칭
-            result = self._stage4_fuzzy(norm_isbn, metadata, publisher)
+            result = self._stage4_fuzzy(norm_isbn, metadata, publisher, book_name)
             if result:
                 return result
 
@@ -187,15 +187,21 @@ class ISBNMatcher:
         norm_isbn: str,
         metadata: BookMetadata,
         publisher: str = "",
+        book_name: str = "",
     ) -> Optional[ISBNMatch]:
         """국립중앙도서관 API 서지정보 기반 퍼지 매칭.
 
         API에서 조회한 정확한 도서명을 사용하여 계약도서와 비교.
         API 조회 실패 시 매칭하지 않음 (오매칭 방지).
+        book_name(사용량 시트)의 속성도 함께 검증하여 오매칭 방지.
         """
         if not metadata.title:
             logger.debug("Stage 4 스킵: API 도서명 없음 (%s)", norm_isbn)
             return None
+
+        # 사용량 시트 book_name에서 속성 추출 (API에 없는 학년 등 보완)
+        from bookips.utils.text import extract_attributes
+        usage_attrs = extract_attributes(book_name) if book_name else {}
 
         best_score = 0.0
         best_book: Optional[ContractBook] = None
@@ -205,9 +211,20 @@ class ISBNMatcher:
             if not same_subject(metadata.title, book.title):
                 continue
 
-            # 핵심 속성 필터: 학년/레벨/권수가 다르면 스킵
+            # 핵심 속성 필터: API 도서명으로 체크
             if not attributes_compatible(metadata.title, book.title):
                 continue
+
+            # book_name 속성으로 추가 체크 (API에 학년 없어도 book_name에 있으면 비교)
+            if usage_attrs:
+                contract_attrs = extract_attributes(book.title)
+                conflict = False
+                for key in set(usage_attrs.keys()) & set(contract_attrs.keys()):
+                    if usage_attrs[key] != contract_attrs[key]:
+                        conflict = True
+                        break
+                if conflict:
+                    continue
 
             # 같은 출판사 우선
             bonus = self._settings.same_publisher_bonus if (
@@ -255,15 +272,29 @@ class ISBNMatcher:
         """매칭 실패 → 후보 목록과 함께 반환"""
         candidates: list[tuple[ContractBook, float]] = []
 
+        # book_name에서 속성 추출 (API에 없는 학년 등 보완)
+        from bookips.utils.text import extract_attributes
+        usage_attrs = extract_attributes(book_name) if book_name else {}
+
         if metadata and metadata.title:
             scored = []
             for book in self._contracts:
                 # 과목 필터
                 if not same_subject(metadata.title, book.title):
                     continue
-                # 핵심 속성 필터: 학년/레벨/권수 다르면 제외
+                # 핵심 속성 필터: API 도서명으로 체크
                 if not attributes_compatible(metadata.title, book.title):
                     continue
+                # book_name 속성으로 추가 체크
+                if usage_attrs:
+                    contract_attrs = extract_attributes(book.title)
+                    conflict = False
+                    for key in set(usage_attrs.keys()) & set(contract_attrs.keys()):
+                        if usage_attrs[key] != contract_attrs[key]:
+                            conflict = True
+                            break
+                    if conflict:
+                        continue
 
                 bonus = self._settings.same_publisher_bonus if (
                     publisher and book.publisher == publisher
