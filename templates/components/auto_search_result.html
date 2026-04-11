@@ -1,0 +1,70 @@
+<div class="card" style="margin-top:16px">
+    <h3>자동 검색 결과</h3>
+
+    {% set found = results|selectattr("1")|list %}
+    {% set not_found = results|rejectattr("1")|list %}
+
+    {% if found %}
+    <p style="color:var(--success)">계약 목록에서 {{ found|length }}건 발견!</p>
+    <form hx-post="/api/mapping/add-bulk"
+          hx-target="#mapping-table"
+          hx-swap="outerHTML">
+        <table>
+            <thead>
+                <tr>
+                    <th>사용 ISBN</th>
+                    <th>API 도서명</th>
+                    <th>→</th>
+                    <th>계약 ISBN</th>
+                    <th>계약 교재명</th>
+                    <th>선택</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usage_isbn, contract_isbn, usage_title, contract_title in found %}
+                <tr>
+                    <td><code>{{ usage_isbn }}</code></td>
+                    <td><small>{{ usage_title[:40] }}</small></td>
+                    <td>→</td>
+                    <td><code>{{ contract_isbn }}</code></td>
+                    <td><small>{{ contract_title[:40] }}</small></td>
+                    <td>
+                        <label>
+                            <input type="checkbox" checked
+                                   name="usage_isbns" value="{{ usage_isbn }}"
+                                   onchange="this.nextElementSibling.disabled = !this.checked">
+                            <input type="hidden" name="contract_isbns" value="{{ contract_isbn }}">
+                        </label>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="form-actions">
+            <button type="submit" class="btn-submit">선택 항목 매핑 등록</button>
+        </div>
+    </form>
+    {% endif %}
+
+    {% if not_found %}
+    <p style="color:var(--danger);margin-top:16px">{{ not_found|length }}건은 계약 목록에서 관련 판본을 찾지 못했습니다:</p>
+    <table>
+        <thead>
+            <tr><th>사용 ISBN</th><th>API 도서명</th><th>상태</th></tr>
+        </thead>
+        <tbody>
+            {% for usage_isbn, _, usage_title, _ in not_found %}
+            <tr>
+                <td><code>{{ usage_isbn }}</code></td>
+                <td><small>{{ usage_title }}</small></td>
+                <td><span class="badge badge-unmatched">수동 매핑 필요</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if not results %}
+    <p>검색할 ISBN이 없습니다.</p>
+    {% endif %}
+</div>

@@ -71,6 +71,79 @@ class NLApiClient:
 
         return self._parse_doc(docs[0])
 
+    def search_by_title(self, title: str, publisher: str = "") -> list[BookMetadata]:
+        """도서명으로 검색하여 관련 도서 목록 반환.
+
+        사용 사례: 미매칭 ISBN의 다른 판본(개정판/구판) 찾기.
+        """
+        if not title:
+            return []
+
+        # 핵심 키워드만 추출 (너무 긴 제목은 검색 정확도 떨어짐)
+        import re
+        # 괄호 내용 제거, 앞 30자만
+        clean = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()[:30].strip()
+
+        params = {
+            "cert_key": self._key,
+            "result_style": self._result_style,
+            "page_no": 1,
+            "page_size": 20,
+            "title": clean,
+        }
+        if publisher:
+            params["publisher"] = publisher
+
+        try:
+            resp = self._get(params)
+        except NLApiError as e:
+            logger.warning("도서명 검색 실패 '%s': %s", clean, e)
+            return []
+
+        docs = resp.get("docs") or resp.get("result") or []
+        results = [self._parse_doc(d) for d in docs]
+        logger.debug("도서명 검색 '%s': %d건", clean, len(results))
+        return results
+
+    def find_related_isbns(
+        self,
+        isbn: str,
+        contract_isbns: set[str],
+    ) -> list[tuple[str, str]]:
+        """미매칭 ISBN의 다른 판본 중 계약 목록에 있는 ISBN 찾기.
+
+        1. ISBN으로 도서 정보 조회
+        2. 도서명으로 관련 도서 검색
+        3. 계약 ISBN 목록과 대조
+
+        Returns:
+            [(contract_isbn, 해당 도서 제목), ...] 매칭된 것만
+        """
+        # 1. 원본 도서 정보 조회
+        metadata = self.lookup_isbn(isbn)
+        if not metadata or not metadata.title:
+            return []
+
+        time.sleep(self._delay)
+
+        # 2. 도서명으로 관련 도서 검색
+        related = self.search_by_title(metadata.title, metadata.publisher)
+
+        # 3. 계약 ISBN과 대조
+        matches = []
+        for book in related:
+            norm = book.ea_isbn.replace("-", "").strip()
+            if norm in contract_isbns and norm != isbn:
+                matches.append((norm, book.title))
+
+        if matches:
+            logger.info(
+                "ISBN %s (%s) → 계약 목록에서 관련 판본 %d건 발견",
+                isbn, metadata.title[:20], len(matches),
+            )
+
+        return matches
+
     def batch_lookup(self, isbns: list[str]) -> dict[str, Optional[BookMetadata]]:
         """여러 ISBN을 순차적으로 조회 (rate limit 준수).
 

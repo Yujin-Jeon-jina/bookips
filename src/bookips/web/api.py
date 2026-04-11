@@ -110,6 +110,48 @@ async def add_mapping_bulk(request: Request):
     return _render(request, "components/mapping_table.html", mappings=mappings)
 
 
+@router.post("/mapping/auto-search", response_class=HTMLResponse)
+async def auto_search_mapping(request: Request):
+    """미매칭 ISBN의 다른 판본을 국립중앙도서관 API로 자동 검색"""
+    from bookips.isbn.nl_api import NLApiClient
+    from bookips.isbn.normalizer import normalize_isbn
+    from bookips.sheets.contract import read_contract_books
+    import time
+
+    form = await request.form()
+    usage_isbns = form.getlist("usage_isbns")
+
+    # 계약 ISBN 목록 로드
+    try:
+        books = read_contract_books(active_only=True)
+        contract_isbn_set = {b.isbn for b in books}
+        contract_map = {b.isbn: b.title for b in books}
+    except Exception as e:
+        return _render(request, "components/error.html", error=f"계약 목록 로드 실패: {e}")
+
+    api = NLApiClient()
+    results = []  # [(usage_isbn, contract_isbn, usage_title, contract_title)]
+
+    for isbn in usage_isbns:
+        isbn = normalize_isbn(isbn.strip())
+        if not isbn:
+            continue
+
+        matches = api.find_related_isbns(isbn, contract_isbn_set)
+        if matches:
+            for contract_isbn, title in matches:
+                contract_title = contract_map.get(contract_isbn, title)
+                results.append((isbn, contract_isbn, title, contract_title))
+        else:
+            # API에서 원본 정보라도 표시
+            meta = api.lookup_isbn(isbn)
+            results.append((isbn, "", meta.title if meta else "조회 실패", ""))
+
+        time.sleep(0.5)
+
+    return _render(request, "components/auto_search_result.html", results=results)
+
+
 @router.post("/mapping/delete", response_class=HTMLResponse)
 async def delete_mapping(
     request: Request,

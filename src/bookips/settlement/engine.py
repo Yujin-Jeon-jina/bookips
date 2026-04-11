@@ -280,6 +280,7 @@ class SettlementEngine:
             )
             blk = find_publisher_block(all_vals, publisher)
             if blk:
+                logger.info("출판사 블록: %s", blk)
                 item_vals = all_vals[blk["item_row"]]
                 prev_month = month - 1
                 prev_year = year
@@ -287,12 +288,30 @@ class SettlementEngine:
                     prev_month = 12
                     prev_year -= 1
                 pcol = find_month_column(item_vals, prev_year, prev_month)
+                logger.info("전월(%d-%02d) 컬럼: %s", prev_year, prev_month, pcol)
+
                 if pcol is not None:
                     prev_mg_balance = get_mg_balance(all_vals, blk, pcol)
-                    if prev_mg_balance is not None:
-                        logger.info("전월 MG 잔액: %s원", f"{prev_mg_balance:,}")
+                    logger.info("전월 MG 잔액(col=%s): %s", pcol, prev_mg_balance)
+
+                # 전월 못 찾으면 당월 기초잔액 시도
+                if prev_mg_balance is None:
+                    ccol = find_month_column(item_vals, year, month)
+                    if ccol is not None and "opening_row" in blk:
+                        opening_row = blk["opening_row"]
+                        row_data = all_vals[opening_row]
+                        if ccol < len(row_data):
+                            val = row_data[ccol].replace("₩", "").replace(",", "").replace("\\", "").strip()
+                            if val:
+                                try:
+                                    prev_mg_balance = int(float(val))
+                                    logger.info("당월 기초잔액 사용: %s원", f"{prev_mg_balance:,}")
+                                except ValueError:
+                                    pass
+            else:
+                logger.warning("출판사 블록 못 찾음: %s", publisher)
         except Exception as e:
-            logger.warning("MG 잔액 조회 실패: %s", e)
+            logger.warning("MG 잔액 조회 실패: %s", e, exc_info=True)
 
         # 파일 복사
         new_file_id = copy_settlement_file(prev_file_id, publisher, year, month)
