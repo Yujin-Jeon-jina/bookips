@@ -176,7 +176,7 @@ class ISBNMatcher:
                     match_method="set_isbn",
                     confidence=0.95,
                 )
-                self._cache.save_mapping(norm_isbn, book.isbn, "set_isbn", 0.95)
+                # set_isbn도 100%가 아니므로 캐시 저장 안 함
                 return match
         return None
 
@@ -238,9 +238,8 @@ class ISBNMatcher:
                 match_method="fuzzy",
                 confidence=min(best_score, 1.0),
             )
-            self._cache.save_mapping(
-                norm_isbn, best_book.isbn, "fuzzy", min(best_score, 1.0)
-            )
+            # fuzzy는 100%가 아니므로 캐시에 저장하지 않음
+            # 100% 확실한 매핑만 저장 (direct/manual)
             return match
 
         return None
