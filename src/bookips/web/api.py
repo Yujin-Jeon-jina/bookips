@@ -177,3 +177,37 @@ async def isbn_search(
     norm = normalize_isbn(isbn)
     metadata = client.lookup_isbn(norm)
     return _render(request, "components/isbn_result.html", isbn=norm, metadata=metadata)
+
+
+@router.post("/settings/sheets", response_class=HTMLResponse)
+async def save_sheet_settings(
+    request: Request,
+    contract_id: str = Form(...),
+    usage_id: str = Form(...),
+    settlement_id: str = Form(...),
+):
+    """시트 ID 변경 (런타임)"""
+    from bookips.config import get_settings
+    s = get_settings()
+    s.contract.spreadsheet_id = contract_id.strip()
+    s.usage.spreadsheet_id = usage_id.strip()
+    s.settlement.spreadsheet_id = settlement_id.strip()
+    logger.info("시트 ID 변경: 계약=%s, 사용량=%s, 정산=%s", contract_id[:8], usage_id[:8], settlement_id[:8])
+    return HTMLResponse('<div class="alert" style="background:#dcfce7;border:1px solid #86efac">시트 ID 저장 완료</div>')
+
+
+@router.post("/settings/matching", response_class=HTMLResponse)
+async def save_matching_settings(
+    request: Request,
+    title_threshold: float = Form(...),
+    combined_threshold: float = Form(...),
+    same_publisher_bonus: float = Form(...),
+):
+    """매칭 임계값 변경 (런타임)"""
+    from bookips.config import get_settings
+    s = get_settings()
+    s.matching.title_threshold = title_threshold
+    s.matching.combined_threshold = combined_threshold
+    s.matching.same_publisher_bonus = same_publisher_bonus
+    logger.info("매칭 설정 변경: title=%.2f, combined=%.2f, bonus=%.2f", title_threshold, combined_threshold, same_publisher_bonus)
+    return HTMLResponse('<div class="alert" style="background:#dcfce7;border:1px solid #86efac">매칭 설정 저장 완료</div>')

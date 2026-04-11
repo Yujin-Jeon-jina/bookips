@@ -69,3 +69,20 @@ async def mapping_page(request: Request):
 @router.get("/isbn/lookup", response_class=HTMLResponse)
 async def isbn_lookup_page(request: Request):
     return _render(request, "isbn_lookup.html")
+
+
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    from bookips.config import get_settings
+    s = get_settings()
+    settings_data = {
+        "contract_id": s.contract.spreadsheet_id,
+        "usage_id": s.usage.spreadsheet_id,
+        "settlement_id": s.settlement.spreadsheet_id,
+        "title_threshold": s.matching.title_threshold,
+        "combined_threshold": s.matching.combined_threshold,
+        "same_publisher_bonus": s.matching.same_publisher_bonus,
+        "nl_api_key": s.nl_api_key,
+        "google_client_id": s.google_client_id,
+    }
+    return _render(request, "settings.html", settings=settings_data)
