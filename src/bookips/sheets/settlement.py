@@ -40,24 +40,53 @@ def find_publisher_block(
 
         # "1 개념원리", "2 씨두" 등의 패턴
         if publisher_name in cell_a or publisher_name in cell_b:
-            # 출판사 블록 시작 → 아래로 내려가며 증빙(정산내역) 행 찾기
+            # 출판사 블록 시작 → 아래로 내려가며 각 행 레이블 찾기
+            block = {"start_row": i}
             for j in range(i, min(i + 20, len(all_values))):
                 inner_row = all_values[j]
-                for cell in inner_row[:3]:  # A~C 열에서 레이블 탐색
-                    if evidence_label in cell.strip():
-                        # Item 행 (날짜 헤더) 찾기
-                        item_row = None
-                        for k in range(i, j):
-                            for c in all_values[k][:3]:
-                                if "Item" in c or "item" in c.lower():
-                                    item_row = k
-                                    break
-                        return {
-                            "start_row": i,
-                            "evidence_row": j,
-                            "item_row": item_row or i + 1,
-                        }
+                for cell in inner_row[:3]:
+                    label = cell.strip()
+                    if evidence_label in label:
+                        block["evidence_row"] = j
+                    if "Item" in label or "item" in label.lower():
+                        block["item_row"] = j
+                    if "기말잔액" in label:
+                        block["balance_row"] = j
+                    if "기초잔액" in label:
+                        block["opening_row"] = j
+                    if "MG사용" in label and "추가" not in label:
+                        block["mg_usage_row"] = j
+
+            if "evidence_row" in block:
+                block.setdefault("item_row", i + 1)
+                return block
     return None
+
+
+def get_mg_balance(
+    all_values: list[list[str]],
+    block: dict,
+    month_col: int,
+) -> Optional[int]:
+    """출판사 블록에서 특정 월의 기말잔액 읽기"""
+    balance_row = block.get("balance_row")
+    if balance_row is None or month_col is None:
+        return None
+    row_data = all_values[balance_row]
+    if month_col < len(row_data):
+        return _parse_amount(row_data[month_col])
+    return None
+
+
+def _parse_amount(value: str) -> int:
+    """금액 문자열 → int. '₩33,336,897' 또는 '-₩5,059,000' → 정수"""
+    if not value or not value.strip():
+        return 0
+    cleaned = value.replace("₩", "").replace("\\", "").replace(",", "").replace("원", "").strip()
+    try:
+        return int(float(cleaned))
+    except (ValueError, TypeError):
+        return 0
 
 
 def find_month_column(
@@ -155,10 +184,11 @@ def copy_settlement_file(
 def write_settlement_data(
     file_id: str,
     rows: list[SettlementRow],
+    prev_mg_balance: Optional[int] = None,
 ) -> None:
     """정산 파일의 첫 번째 탭에 정산 데이터 쓰기.
 
-    기존 데이터를 지우고 새 데이터를 입력.
+    기존 데이터를 지우고 새 데이터 + 합계 + MG 잔액 입력.
     """
     client = get_google_client()
     ss = client.open_spreadsheet(file_id)
@@ -205,12 +235,41 @@ def write_settlement_data(
         line[cols.amount] = row.amount
         values.append(line)
 
+    # 합계 행 추가
+    total_count = sum(r.usage_count for r in rows)
+    total_amount = sum(r.amount for r in rows)
+    summary_line = [""] * max_col
+    summary_line[cols.title] = "합계"
+    summary_line[cols.usage_count] = total_count
+    summary_line[cols.amount] = total_amount
+    values.append([""] * max_col)  # 빈 행
+    values.append(summary_line)
+
+    # MG 잔액 정보 추가
+    if prev_mg_balance is not None:
+        values.append([""] * max_col)  # 빈 행
+        mg_row1 = [""] * max_col
+        mg_row1[cols.title] = "전월 MG 잔액"
+        mg_row1[cols.amount] = prev_mg_balance
+        values.append(mg_row1)
+
+        mg_row2 = [""] * max_col
+        mg_row2[cols.title] = f"당월 사용액"
+        mg_row2[cols.amount] = -total_amount
+        values.append(mg_row2)
+
+        remaining = prev_mg_balance - total_amount
+        mg_row3 = [""] * max_col
+        mg_row3[cols.title] = "사용분 제외 잔여금액"
+        mg_row3[cols.amount] = remaining
+        values.append(mg_row3)
+
     # A2부터 쓰기
     end_col = gspread.utils.rowcol_to_a1(1, max_col).replace("1", "")
     write_range = f"A2:{end_col}{len(values) + 1}"
     ws.update(write_range, values)
 
-    logger.info("정산 데이터 %d건 입력 완료 (file_id: %s)", len(values), file_id)
+    logger.info("정산 데이터 %d건 + 합계/MG잔액 입력 완료 (file_id: %s)", len(rows), file_id)
 
 
 def update_evidence_link(

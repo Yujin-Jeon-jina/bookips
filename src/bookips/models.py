@@ -125,11 +125,18 @@ class SettlementResult:
     rows: list[SettlementRow] = field(default_factory=list)
     unmatched: list[UnmatchedRecord] = field(default_factory=list)
     new_file_url: str = ""
-    prev_file_url: str = ""  # 전월 파일 URL (사용자 입력, 시트저장 시 전달용)
+    prev_file_url: str = ""
+    prev_mg_balance: Optional[int] = None  # 전월 MG 잔액
 
     @property
     def total_amount(self) -> int:
         return sum(r.amount for r in self.rows)
+
+    @property
+    def remaining_mg(self) -> Optional[int]:
+        if self.prev_mg_balance is not None:
+            return self.prev_mg_balance - self.total_amount
+        return None
 
     @property
     def match_rate(self) -> float:

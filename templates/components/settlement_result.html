@@ -18,6 +18,16 @@
             <span class="stat-label">총 정산액</span>
             <span class="stat-value">₩{{ "{:,}".format(result.total_amount) }}</span>
         </div>
+        {% if result.prev_mg_balance is not none %}
+        <div class="stat">
+            <span class="stat-label">전월 MG 잔액</span>
+            <span class="stat-value">₩{{ "{:,}".format(result.prev_mg_balance) }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">사용 후 잔여</span>
+            <span class="stat-value {% if result.remaining_mg < 0 %}text-danger{% endif %}">₩{{ "{:,}".format(result.remaining_mg) }}</span>
+        </div>
+        {% endif %}
     </div>
 
     {% if result.rows %}

@@ -34,6 +34,7 @@ from bookips.sheets.settlement import (
     find_month_column,
     find_publisher_block,
     get_evidence_link,
+    get_mg_balance,
     update_evidence_link,
     write_settlement_data,
 )
@@ -270,11 +271,34 @@ class SettlementEngine:
                 "전월 정산 파일을 찾을 수 없습니다. '전월 정산파일 URL'을 직접 입력해 주세요."
             )
 
+        # 전월 MG 잔액 읽기
+        prev_mg_balance = None
+        try:
+            all_vals = client.get_all_values(
+                settings.settlement.spreadsheet_id,
+                settings.settlement.summary_worksheet,
+            )
+            blk = find_publisher_block(all_vals, publisher)
+            if blk:
+                item_vals = all_vals[blk["item_row"]]
+                prev_month = month - 1
+                prev_year = year
+                if prev_month == 0:
+                    prev_month = 12
+                    prev_year -= 1
+                pcol = find_month_column(item_vals, prev_year, prev_month)
+                if pcol is not None:
+                    prev_mg_balance = get_mg_balance(all_vals, blk, pcol)
+                    if prev_mg_balance is not None:
+                        logger.info("전월 MG 잔액: %s원", f"{prev_mg_balance:,}")
+        except Exception as e:
+            logger.warning("MG 잔액 조회 실패: %s", e)
+
         # 파일 복사
         new_file_id = copy_settlement_file(prev_file_id, publisher, year, month)
 
-        # 데이터 쓰기
-        write_settlement_data(new_file_id, rows)
+        # 데이터 쓰기 (합계 + MG 잔액 포함)
+        write_settlement_data(new_file_id, rows, prev_mg_balance=prev_mg_balance)
 
         # 메인 시트 Link 업데이트 시도
         try:
