@@ -55,7 +55,14 @@ def read_contract_books(publisher_filter: Optional[str] = None) -> list[Contract
     cfg = settings.contract
     client = get_google_client()
 
-    all_values = client.get_all_values(cfg.spreadsheet_id, cfg.worksheet)
+    # 워크시트 이름으로 시도, 실패 시 첫 번째 시트 사용
+    try:
+        all_values = client.get_all_values(cfg.spreadsheet_id, cfg.worksheet)
+    except Exception:
+        logger.warning("워크시트 '%s' 찾기 실패, 첫 번째 시트 사용", cfg.worksheet)
+        ss = client.open_spreadsheet(cfg.spreadsheet_id)
+        ws = ss.sheet1
+        all_values = ws.get_all_values()
 
     # 헤더 행 건너뛰기 (header_rows 수만큼)
     data_rows = all_values[cfg.header_rows:]
