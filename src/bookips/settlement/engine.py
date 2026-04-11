@@ -213,11 +213,17 @@ class SettlementEngine:
         settings = get_settings()
         client = get_google_client()
 
-        # 메인 시트 전체 값 로드
-        all_values = client.get_all_values(
-            settings.settlement.spreadsheet_id,
-            settings.settlement.summary_worksheet,
-        )
+        # 메인 시트 전체 값 로드 (탭 이름 fallback)
+        try:
+            all_values = client.get_all_values(
+                settings.settlement.spreadsheet_id,
+                settings.settlement.summary_worksheet,
+            )
+        except Exception:
+            logger.warning("워크시트 '%s' 찾기 실패, 첫 번째 시트 사용", settings.settlement.summary_worksheet)
+            ss = client.open_spreadsheet(settings.settlement.spreadsheet_id)
+            ws = ss.sheet1
+            all_values = ws.get_all_values()
 
         # 출판사 블록 찾기
         block = find_publisher_block(all_values, publisher)

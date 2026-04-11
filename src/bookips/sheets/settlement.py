@@ -95,7 +95,11 @@ def get_evidence_link(
 ) -> Optional[str]:
     """증빙(정산내역) 행의 특정 월 셀에서 하이퍼링크 URL 추출"""
     client = get_google_client()
-    ws = client.get_worksheet(spreadsheet_id, worksheet_title)
+    try:
+        ws = client.get_worksheet(spreadsheet_id, worksheet_title)
+    except Exception:
+        ss = client.open_spreadsheet(spreadsheet_id)
+        ws = ss.sheet1
 
     # gspread의 cell은 1-indexed
     cell = ws.cell(evidence_row + 1, month_col + 1)
@@ -213,7 +217,11 @@ def update_evidence_link(
 ) -> None:
     """정산 메인 시트의 증빙(정산내역) 셀에 새 파일 링크 업데이트"""
     client = get_google_client()
-    ws = client.get_worksheet(spreadsheet_id, worksheet_title)
+    try:
+        ws = client.get_worksheet(spreadsheet_id, worksheet_title)
+    except Exception:
+        ss = client.open_spreadsheet(spreadsheet_id)
+        ws = ss.sheet1
 
     new_url = f"https://docs.google.com/spreadsheets/d/{new_file_id}/edit"
     cell_a1 = gspread.utils.rowcol_to_a1(evidence_row + 1, month_col + 1)
