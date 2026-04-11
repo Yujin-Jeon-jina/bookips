@@ -18,6 +18,26 @@ from bookips.sheets.client import get_google_client
 logger = logging.getLogger(__name__)
 
 
+def _match_publisher(name: str, cell: str) -> bool:
+    """출판사명 유연 매칭. 공백/대소문자 무시, 부분 일치."""
+    if not name or not cell:
+        return False
+    # 공백 제거 후 비교
+    n = name.replace(" ", "").lower()
+    c = cell.replace(" ", "").lower()
+    # 정확히 포함되거나, 핵심 키워드가 포함되면 매칭
+    if n in c or c in n:
+        return True
+    # "NE능률" ↔ "능률" 등 부분 매칭
+    # 한글 부분만 추출해서 비교
+    import re
+    korean_n = re.sub(r'[^가-힣]', '', name)
+    korean_c = re.sub(r'[^가-힣]', '', cell)
+    if korean_n and korean_c and (korean_n in korean_c or korean_c in korean_n):
+        return True
+    return False
+
+
 def find_publisher_block(
     all_values: list[list[str]],
     publisher_name: str,
@@ -34,24 +54,23 @@ def find_publisher_block(
     evidence_label = settings.settlement.evidence_row_label
 
     for i, row in enumerate(all_values):
-        # A열 또는 B열에서 출판사명 검색
-        cell_a = row[0].strip() if row and len(row) > 0 else ""
-        cell_b = row[1].strip() if row and len(row) > 1 else ""
-
-        # "1 개념원리", "2 씨두" 등의 패턴
-        if publisher_name in cell_a or publisher_name in cell_b:
-            # 출판사 블록 시작 → 아래로 내려가며 각 행 레이블 찾기
-            block = {"start_row": i}
-            for j in range(i, min(i + 20, len(all_values))):
-                inner_row = all_values[j]
-                for cell in inner_row[:3]:
-                    label = cell.strip()
-                    if evidence_label in label:
-                        block["evidence_row"] = j
-                    if "Item" in label or "item" in label.lower():
-                        block["item_row"] = j
-                    if "기말잔액" in label:
-                        block["balance_row"] = j
+        # A~C열에서 출판사명 검색 (유연한 매칭)
+        for col_idx in range(min(3, len(row))):
+            cell = row[col_idx].strip() if row else ""
+            # 정확 포함, 공백 무시, 대소문자 무시
+            if _match_publisher(publisher_name, cell):
+                # 출판사 블록 시작 → 아래로 내려가며 각 행 레이블 찾기
+                block = {"start_row": i}
+                for j in range(i, min(i + 20, len(all_values))):
+                    inner_row = all_values[j]
+                    for cell2 in inner_row[:3]:
+                        label = cell2.strip()
+                        if evidence_label in label:
+                            block["evidence_row"] = j
+                        if "Item" in label or "item" in label.lower():
+                            block["item_row"] = j
+                        if "기말잔액" in label:
+                            block["balance_row"] = j
                     if "기초잔액" in label:
                         block["opening_row"] = j
                     if "MG사용" in label and "추가" not in label:
