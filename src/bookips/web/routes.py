@@ -30,6 +30,7 @@ async def settlement_page(request: Request):
 
 
 @router.get("/mapping", response_class=HTMLResponse)
+@router.post("/mapping", response_class=HTMLResponse)
 async def mapping_page(request: Request):
     from bookips.isbn.cache import ISBNCache
     from bookips.isbn.normalizer import normalize_isbn
@@ -45,11 +46,24 @@ async def mapping_page(request: Request):
     except Exception:
         pass
 
-    # 각 매핑에 계약 존재 여부 표시
     for m in mappings:
         m["contract_exists"] = normalize_isbn(m["contract_isbn"]) in contract_isbns
 
-    return _render(request, "mapping.html", mappings=mappings)
+    # POST: 정산 결과에서 미매칭 항목이 넘어옴
+    prefill = []
+    if request.method == "POST":
+        form = await request.form()
+        unmatched_isbns = form.getlist("unmatched_isbns")
+        unmatched_names = form.getlist("unmatched_names")
+        candidate_isbns = form.getlist("candidate_isbns")
+        for i, isbn in enumerate(unmatched_isbns):
+            prefill.append({
+                "usage_isbn": isbn,
+                "book_name": unmatched_names[i] if i < len(unmatched_names) else "",
+                "candidate_isbn": candidate_isbns[i] if i < len(candidate_isbns) else "",
+            })
+
+    return _render(request, "mapping.html", mappings=mappings, prefill=prefill)
 
 
 @router.get("/isbn/lookup", response_class=HTMLResponse)

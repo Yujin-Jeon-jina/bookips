@@ -7,7 +7,7 @@
     <h1>ISBN 매핑 관리</h1>
 
     <div class="card">
-        <h2>수동 매핑 추가</h2>
+        <h2>수동 매핑 추가{% if prefill %} — 미매칭 {{ prefill|length }}건{% endif %}</h2>
         <form id="mapping-form"
               hx-post="/api/mapping/add-bulk"
               hx-target="#mapping-table"
@@ -16,16 +16,29 @@
                 <thead>
                     <tr>
                         <th>사용 ISBN</th>
+                        <th>교재명 (참고)</th>
                         <th>계약 ISBN</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody id="mapping-rows">
-                    <tr class="mapping-row">
-                        <td><input type="text" name="usage_isbns" placeholder="9781234567890" required></td>
-                        <td><input type="text" name="contract_isbns" placeholder="9789876543210" required></td>
-                        <td><button type="button" class="btn-small btn-danger" onclick="removeRow(this)">삭제</button></td>
-                    </tr>
+                    {% if prefill %}
+                        {% for p in prefill %}
+                        <tr class="mapping-row">
+                            <td><input type="text" name="usage_isbns" value="{{ p.usage_isbn }}" required></td>
+                            <td><small>{{ p.book_name[:40] }}{% if p.book_name|length > 40 %}...{% endif %}</small></td>
+                            <td><input type="text" name="contract_isbns" value="{{ p.candidate_isbn }}" placeholder="계약 ISBN 입력" required></td>
+                            <td><button type="button" class="btn-small btn-danger" onclick="removeRow(this)">삭제</button></td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr class="mapping-row">
+                            <td><input type="text" name="usage_isbns" placeholder="9781234567890" required></td>
+                            <td><small>-</small></td>
+                            <td><input type="text" name="contract_isbns" placeholder="9789876543210" required></td>
+                            <td><button type="button" class="btn-small btn-danger" onclick="removeRow(this)">삭제</button></td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
             <div class="form-actions">
@@ -45,6 +58,7 @@ function addRow() {
     row.className = 'mapping-row';
     row.innerHTML = `
         <td><input type="text" name="usage_isbns" placeholder="9781234567890" required></td>
+        <td><small>-</small></td>
         <td><input type="text" name="contract_isbns" placeholder="9789876543210" required></td>
         <td><button type="button" class="btn-small btn-danger" onclick="removeRow(this)">삭제</button></td>
     `;
