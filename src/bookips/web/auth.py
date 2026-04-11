@@ -48,6 +48,15 @@ async def callback(request: Request):
         logger.error("토큰 교환 실패: %s", e, exc_info=True)
         return RedirectResponse(url=f"/?error=token_exchange_failed&detail={e}")
 
+    # 인증 성공 후 Google Sheets에서 ISBN 매핑 동기화
+    try:
+        from bookips.isbn.cache import ISBNCache
+        cache = ISBNCache()
+        count = cache.sync_from_sheet()
+        logger.info("로그인 후 매핑 %d건 동기화", count)
+    except Exception as e:
+        logger.warning("매핑 동기화 실패 (계속 진행): %s", e)
+
     return RedirectResponse(url="/")
 
 
