@@ -1,6 +1,6 @@
 sheets:
   contract:
-    spreadsheet_id: "1xrC3seWM8FH-MnpvE06shsbKKZOcAoIprIpboOiKQos"
+    spreadsheet_id: "16cOL4lBrZUN-MUcgy3_U0SXa30jL_uJ8P2WVWXM2_Gs"
     worksheet: "MATHPRESSO CONTRACTED IP LIST_2026"
     header_rows: 2          # 1행: 영문 헤더, 2행: 한글 설명 → 데이터는 3행+
     columns:
@@ -12,7 +12,7 @@ sheets:
       end_date: 5           # F열 (계약 종료일)
 
   usage:
-    spreadsheet_id: "1xtT0DcS8A3lGCSZPcpvggo4pzZhmF2w1QWeIEo_BNVU"
+    spreadsheet_id: "1go5YF2FwaeKMDivyvjCMyPHJa6DxyWQ720o5hOS4wEk"
     worksheet: "Pivot"
     data_start_row: 8       # 0-indexed: 행8(9번째 행)부터 데이터
     columns:
@@ -25,7 +25,7 @@ sheets:
       authorized: 6         # G열 (미하가여부)
 
   settlement:
-    spreadsheet_id: "1u18mFtPXz84Yx0vgyu4w0RvxVf2lL0CF_Cz0PCYHdcw"
+    spreadsheet_id: "1hA7nYY5zlQIzOjG7GwM4wmQWxEMonvoHbB74b_JPCKA"
     summary_worksheet: "씰북 Summary"
     evidence_row_label: "증빙(정산내역)"   # Link가 있는 행 레이블
     individual_file_name_pattern: "{yy}.{mm:02d}월_{publisher}_갱신계약(MG) 적용분"
