@@ -23,6 +23,7 @@ from bookips.models import (
     ISBNMatch,
     SettlementResult,
     SettlementRow,
+    SourceISBN,
     UnmatchedRecord,
     UsageRecord,
 )
@@ -164,15 +165,25 @@ class SettlementEngine:
         for rec in usage_records:
             usage_by_isbn[normalize_isbn(rec.isbn)] = rec
 
-        # 계약 ISBN별 사용건수 합산
+        # 계약 ISBN별 사용건수 합산 + 출처 추적
         contract_usage: dict[str, int] = defaultdict(int)
         contract_match: dict[str, ISBNMatch] = {}
+        contract_sources: dict[str, list[SourceISBN]] = defaultdict(list)
 
         for match in matches:
             rec = usage_by_isbn.get(match.usage_isbn)
             usage_count = rec.usage_count if rec else 0
             contract_usage[match.contract_isbn] += usage_count
-            # 첫 매칭 정보 저장 (동일 계약 ISBN에 여러 사용 ISBN이 매핑될 수 있음)
+
+            # 출처 정보 기록
+            contract_sources[match.contract_isbn].append(SourceISBN(
+                usage_isbn=match.usage_isbn,
+                usage_count=usage_count,
+                match_method=match.match_method,
+                confidence=match.confidence,
+                book_name=rec.book_name if rec else "",
+            ))
+
             if match.contract_isbn not in contract_match:
                 contract_match[match.contract_isbn] = match
 
@@ -181,6 +192,7 @@ class SettlementEngine:
         for contract_isbn, total_count in contract_usage.items():
             match = contract_match[contract_isbn]
             book = match.contract_book
+            sources = contract_sources[contract_isbn]
             rows.append(SettlementRow(
                 period=period,
                 publisher=book.publisher,
@@ -190,6 +202,7 @@ class SettlementEngine:
                 unit_price=book.unit_price,
                 amount=total_count * book.unit_price,
                 match_method=match.match_method,
+                sources=sources,
             ))
 
         # 사용건수 내림차순 정렬

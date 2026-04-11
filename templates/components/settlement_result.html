@@ -25,12 +25,12 @@
     <table>
         <thead>
             <tr>
-                <th>ISBN</th>
-                <th>교재명</th>
+                <th>계약 ISBN</th>
+                <th>계약 교재명</th>
+                <th>사용 ISBN 매핑</th>
                 <th>사용수</th>
                 <th>단가</th>
                 <th>정산액</th>
-                <th>매칭</th>
             </tr>
         </thead>
         <tbody>
@@ -38,12 +38,22 @@
             <tr>
                 <td><code>{{ row.contract_isbn }}</code></td>
                 <td>{{ row.title }}</td>
+                <td>
+                    {% for src in row.sources %}
+                    <div class="source-row">
+                        <span class="badge badge-{{ src.match_method }}">{{ src.match_method }}</span>
+                        {% if src.usage_isbn != row.contract_isbn %}
+                        <code class="isbn-small">{{ src.usage_isbn }}</code>
+                        {% else %}
+                        <code class="isbn-small same">동일</code>
+                        {% endif %}
+                        <small>{{ src.book_name[:30] }}{% if src.book_name|length > 30 %}...{% endif %} ({{ src.usage_count }}건)</small>
+                    </div>
+                    {% endfor %}
+                </td>
                 <td style="text-align:right">{{ row.usage_count }}</td>
                 <td style="text-align:right">₩{{ "{:,}".format(row.unit_price) }}</td>
                 <td style="text-align:right"><strong>₩{{ "{:,}".format(row.amount) }}</strong></td>
-                <td>
-                    <span class="badge badge-{{ row.match_method }}">{{ row.match_method }}</span>
-                </td>
             </tr>
             {% endfor %}
         </tbody>

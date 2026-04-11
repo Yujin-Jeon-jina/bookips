@@ -66,6 +66,16 @@ class ISBNMatch:
 
 
 @dataclass
+class SourceISBN:
+    """하나의 계약 ISBN에 매핑된 사용 ISBN 정보"""
+    usage_isbn: str
+    usage_count: int
+    match_method: str       # direct / fuzzy / cache / manual
+    confidence: float
+    book_name: str = ""     # 사용량 시트의 교재명
+
+
+@dataclass
 class SettlementRow:
     """개별 정산 파일 첫 번째 탭의 한 행"""
     period: str             # 정산 기간 (YYYY-MM)
@@ -76,6 +86,7 @@ class SettlementRow:
     unit_price: int         # 교재 정가
     amount: int             # 정산 금액 (usage_count × unit_price)
     match_method: str = ""  # 매칭 방법 (리포트용)
+    sources: list[SourceISBN] = field(default_factory=list)  # 매핑 출처 (검증용)
 
     @classmethod
     def from_match(cls, match: ISBNMatch, period: str, usage_count: int) -> "SettlementRow":
