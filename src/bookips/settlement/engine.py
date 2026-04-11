@@ -311,7 +311,48 @@ class SettlementEngine:
             else:
                 logger.warning("출판사 블록 못 찾음: %s", publisher)
         except Exception as e:
-            logger.warning("MG 잔액 조회 실패: %s", e, exc_info=True)
+            logger.warning("MG 잔액 조회 실패 (메인 시트): %s", e, exc_info=True)
+
+        # Fallback: 메인 시트에서 못 읽으면 전월 정산 파일에서 읽기
+        if prev_mg_balance is None and prev_file_id:
+            try:
+                logger.info("전월 정산 파일에서 잔액 읽기 시도: %s", prev_file_id)
+                prev_ss = client.open_spreadsheet(prev_file_id)
+                prev_ws = prev_ss.sheet1
+                prev_data = prev_ws.get_all_values()
+
+                # 전월 파일 하단에서 "잔여금액" 또는 "합계" 찾기
+                for row_data in reversed(prev_data):
+                    for ci, cell in enumerate(row_data):
+                        cell_str = cell.strip()
+                        if "잔여금액" in cell_str or "잔여" in cell_str:
+                            # 잔여금액 행의 금액 컬럼(G열=6) 읽기
+                            if len(row_data) > 6:
+                                val = row_data[6].replace("₩", "").replace(",", "").replace("\\", "").strip()
+                                if val:
+                                    try:
+                                        prev_mg_balance = int(float(val))
+                                        logger.info("전월 파일에서 잔여금액 읽기 성공: %s원", f"{prev_mg_balance:,}")
+                                    except ValueError:
+                                        pass
+                            break
+                    if prev_mg_balance is not None:
+                        break
+
+                # 잔여금액 못 찾으면 합계 금액에서 역산 시도
+                if prev_mg_balance is None:
+                    for row_data in reversed(prev_data):
+                        for cell in row_data:
+                            if "합계" in cell.strip():
+                                # 합계 행에서 총액 읽기 → 전월 총 사용액
+                                if len(row_data) > 6:
+                                    val = row_data[6].replace("₩", "").replace(",", "").replace("\\", "").strip()
+                                    if val:
+                                        logger.info("전월 파일 합계: %s", val)
+                                break
+
+            except Exception as e:
+                logger.warning("전월 파일에서 잔액 읽기 실패: %s", e)
 
         # 파일 복사
         new_file_id = copy_settlement_file(prev_file_id, publisher, year, month)
