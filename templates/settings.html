@@ -7,55 +7,6 @@
     <h1>설정</h1>
 
     <div class="card">
-        <h2>Google Sheets ID</h2>
-        <p class="hint">테스트 시트 ↔ 운영 시트 전환 시 프리셋을 선택하거나 ID를 직접 변경하세요.</p>
-        <div class="form-actions" style="margin-bottom:16px">
-            <button type="button" class="btn-small" onclick="setPreset('test')">테스트 시트</button>
-            <button type="button" class="btn-small" onclick="setPreset('prod')">운영 시트</button>
-        </div>
-        <script>
-        function setPreset(mode) {
-            const presets = {
-                test: {
-                    contract: '16cOL4lBrZUN-MUcgy3_U0SXa30jL_uJ8P2WVWXM2_Gs',
-                    usage: '1go5YF2FwaeKMDivyvjCMyPHJa6DxyWQ720o5hOS4wEk',
-                    settlement: '1hA7nYY5zlQIzOjG7GwM4wmQWxEMonvoHbB74b_JPCKA',
-                },
-                prod: {
-                    contract: '1xrC3seWM8FH-MnpvE06shsbKKZOcAoIprIpboOiKQos',
-                    usage: '1xtT0DcS8A3lGCSZPcpvggo4pzZhmF2w1QWeIEo_BNVU',
-                    settlement: '1u18mFtPXz84Yx0vgyu4w0RvxVf2lL0CF_Cz0PCYHdcw',
-                }
-            };
-            const p = presets[mode];
-            document.querySelector('[name=contract_id]').value = p.contract;
-            document.querySelector('[name=usage_id]').value = p.usage;
-            document.querySelector('[name=settlement_id]').value = p.settlement;
-        }
-        </script>
-        <form hx-post="/api/settings/sheets"
-              hx-target="#sheets-status"
-              hx-swap="innerHTML">
-            <div class="form-group">
-                <label>계약도서 시트 ID</label>
-                <input type="text" name="contract_id" value="{{ settings.contract_id }}">
-            </div>
-            <div class="form-group">
-                <label>사용량 시트 ID</label>
-                <input type="text" name="usage_id" value="{{ settings.usage_id }}">
-            </div>
-            <div class="form-group">
-                <label>정산 메인 시트 ID</label>
-                <input type="text" name="settlement_id" value="{{ settings.settlement_id }}">
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn-submit">저장</button>
-            </div>
-        </form>
-        <div id="sheets-status"></div>
-    </div>
-
-    <div class="card">
         <h2>매칭 임계값</h2>
         <p class="hint">값이 높을수록 엄격하게 매칭합니다. (0.0 ~ 1.0)</p>
         <form hx-post="/api/settings/matching"

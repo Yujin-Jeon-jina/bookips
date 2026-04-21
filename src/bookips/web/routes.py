@@ -76,9 +76,6 @@ async def settings_page(request: Request):
     from bookips.config import get_settings
     s = get_settings()
     settings_data = {
-        "contract_id": s.contract.spreadsheet_id,
-        "usage_id": s.usage.spreadsheet_id,
-        "settlement_id": s.settlement.spreadsheet_id,
         "title_threshold": s.matching.title_threshold,
         "combined_threshold": s.matching.combined_threshold,
         "same_publisher_bonus": s.matching.same_publisher_bonus,

@@ -179,21 +179,6 @@ async def isbn_search(
     return _render(request, "components/isbn_result.html", isbn=norm, metadata=metadata)
 
 
-@router.post("/settings/sheets", response_class=HTMLResponse)
-async def save_sheet_settings(
-    request: Request,
-    contract_id: str = Form(...),
-    usage_id: str = Form(...),
-    settlement_id: str = Form(...),
-):
-    """시트 ID 변경 (런타임)"""
-    from bookips.config import get_settings
-    s = get_settings()
-    s.contract.spreadsheet_id = contract_id.strip()
-    s.usage.spreadsheet_id = usage_id.strip()
-    s.settlement.spreadsheet_id = settlement_id.strip()
-    logger.info("시트 ID 변경: 계약=%s, 사용량=%s, 정산=%s", contract_id[:8], usage_id[:8], settlement_id[:8])
-    return HTMLResponse('<div class="alert" style="background:#dcfce7;border:1px solid #86efac">시트 ID 저장 완료</div>')
 
 
 @router.post("/settings/matching", response_class=HTMLResponse)
