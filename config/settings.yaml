@@ -1,7 +1,7 @@
 sheets:
   contract:
     spreadsheet_id: "1xrC3seWM8FH-MnpvE06shsbKKZOcAoIprIpboOiKQos"
-    worksheet: "MATHPRESSO CONTRACTED IP LIST_2026"
+    worksheet: ""
     header_rows: 2          # 1행: 영문 헤더, 2행: 한글 설명 → 데이터는 3행+
     columns:
       isbn: 0               # A열 (0-indexed)
