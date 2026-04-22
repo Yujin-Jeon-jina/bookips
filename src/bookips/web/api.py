@@ -19,6 +19,19 @@ def _render(request: Request, name: str, **kwargs):
     return templates.TemplateResponse(request, name, kwargs)
 
 
+def _enrich_mappings(mappings: list[dict]) -> list[dict]:
+    from bookips.isbn.normalizer import normalize_isbn
+    from bookips.sheets.contract import read_contract_books
+    try:
+        books = read_contract_books(active_only=True)
+        contract_isbns = {b.isbn for b in books}
+    except Exception:
+        contract_isbns = set()
+    for m in mappings:
+        m["contract_exists"] = normalize_isbn(m["contract_isbn"]) in contract_isbns
+    return mappings
+
+
 @router.get("/publishers", response_class=HTMLResponse)
 async def get_publishers(request: Request):
     from bookips.sheets.contract import get_publisher_list
@@ -106,7 +119,7 @@ async def add_mapping_bulk(request: Request):
             count += 1
 
     logger.info("수동 매핑 %d건 일괄 추가", count)
-    mappings = cache.list_mappings()
+    mappings = _enrich_mappings(cache.list_mappings())
     return _render(request, "components/mapping_table.html", mappings=mappings)
 
 
@@ -161,7 +174,7 @@ async def delete_mapping(
 
     cache = ISBNCache()
     cache.delete_mapping(usage_isbn)
-    mappings = cache.list_mappings()
+    mappings = _enrich_mappings(cache.list_mappings())
     return _render(request, "components/mapping_table.html", mappings=mappings)
 
 
